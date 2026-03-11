@@ -116,7 +116,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1100px; /* Ditambah karena ada kolom No. PO */
+      min-width: 1300px; /* Ditambah karena ada kolom lebih banyak */
       font-size: 12px;
     }
 
@@ -253,7 +253,7 @@
     
     <div class="filter-grid">
       <input type="date" id="fTanggal" placeholder="Tanggal">
-      <input type="text" id="fPO" placeholder="Cari No. PO"> <!-- FILTER NO PO BARU -->
+      <input type="text" id="fPO" placeholder="Cari No. PO">
       <input type="text" id="fBrand" placeholder="Cari Brand">
       <select id="fLine"><option value="">Semua Line</option></select>
       <select id="fOP"><option value="">Semua OP</option></select>
@@ -331,7 +331,7 @@
   
   // Filter
   const fTanggal = document.getElementById('fTanggal');
-  const fPO = document.getElementById('fPO'); // Filter No. PO baru
+  const fPO = document.getElementById('fPO');
   const fBrand = document.getElementById('fBrand');
   const fLine = document.getElementById('fLine');
   const fOP = document.getElementById('fOP');
@@ -368,6 +368,20 @@
     }
   }
 
+  // Fungsi untuk mengubah format dd/mm/yyyy kembali ke yyyy-mm-dd untuk input date
+  function formatDateForInput(tglStr) {
+    if (!tglStr) return '';
+    // Jika sudah dalam format yyyy-mm-dd
+    if (tglStr.match(/^\d{4}-\d{2}-\d{2}$/)) return tglStr;
+    
+    // Jika dalam format dd/mm/yyyy
+    const parts = tglStr.split('/');
+    if (parts.length === 3) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return tglStr;
+  }
+
   // ============== FILL FILTER DROPDOWNS ==============
   function fillFilterDropdowns() {
     const lists = [
@@ -385,12 +399,12 @@
   }
   fillFilterDropdowns();
 
-  // ============== BUILD QUERY FILTER (DITAMBAH NO. PO) ==============
+  // ============== BUILD QUERY FILTER ==============
   function buildQuery() {
     let query = sb.from('permintaan_barang').select('*', { count: 'exact', head: false });
     
     if (fTanggal.value) query = query.eq('tanggal', fTanggal.value);
-    if (fPO.value) query = query.ilike('nopo', `%${fPO.value}%`); // Filter No. PO
+    if (fPO.value) query = query.ilike('nopo', `%${fPO.value}%`);
     if (fBrand.value) query = query.ilike('brand', `%${fBrand.value}%`);
     if (fLine.value) query = query.eq('line', fLine.value);
     if (fOP.value) query = query.eq('op', fOP.value);
@@ -422,7 +436,7 @@
       const to = from + pageSize - 1;
       
       const { data, error } = await query
-        .order('tanggal', { ascending: false })  // TERBARU DI ATAS
+        .order('tanggal', { ascending: false })
         .order('created_at', { ascending: false })
         .range(from, to);
       
@@ -445,7 +459,7 @@
     }
   }
 
-  // ============== RENDER TABLE (DITAMBAH KOLOM NO. PO) ==============
+  // ============== RENDER TABLE ==============
   function renderTable() {
     const tbody = dataTable.tBodies[0];
     tbody.innerHTML = '';
@@ -462,7 +476,7 @@
       
       row.innerHTML = `
         <td>${formatTanggalID(d.tanggal)}</td>
-        <td>${d.nopo || '-'}</td> <!-- KOLOM NO PO -->
+        <td>${d.nopo || '-'}</td>
         <td>${d.brand || '-'}</td>
         <td>${d.line || '-'}</td>
         <td>${d.op || '-'}</td>
@@ -488,17 +502,24 @@
     nextBtn.disabled = currentPage >= totalPages;
   }
 
-  // ============== EDIT ROW (DITAMBAH NO. PO) ==============
+  // ============== EDIT ROW (SEMUA KOLOM BISA DIEDIT) ==============
   window.editRow = async function(btn) {
     const tr = btn.closest('tr');
     const id = tr.dataset.id;
     const tds = tr.querySelectorAll('td');
     
     if (btn.innerText.includes('💾')) {
-      // Save mode
+      // SAVE MODE
       try {
+        // Ambil nilai dari input/select
+        const tanggalInput = tds[0].querySelector('input[type="date"]')?.value;
+        const nopoInput = tds[1].querySelector('input[type="text"]')?.value;
+        const brandInput = tds[2].querySelector('input[type="text"]')?.value;
+        
         const payload = {
-          nopo: tds[1].querySelector('input')?.value, // No. PO
+          tanggal: tanggalInput || tds[0].innerText, // Jika tidak ada input, pakai nilai lama
+          nopo: nopoInput,
+          brand: brandInput,
           line: tds[3].querySelector('select')?.value,
           op: tds[4].querySelector('select')?.value,
           jenis: tds[5].querySelector('select')?.value,
@@ -512,7 +533,9 @@
         if (error) throw error;
         
         // Restore view
+        tds[0].innerText = formatTanggalID(payload.tanggal);
         tds[1].innerText = payload.nopo || '-';
+        tds[2].innerText = payload.brand || '-';
         tds[3].innerText = payload.line;
         tds[4].innerText = payload.op;
         tds[5].innerText = payload.jenis;
@@ -531,7 +554,9 @@
       return;
     }
     
-    // Edit mode
+    // EDIT MODE - SEMUA KOLOM BISA DIEDIT
+    
+    // Fungsi untuk membuat select dropdown
     function toSelect(list, val) {
       let html = '<select style="width:100%;">';
       list.forEach(v => html += `<option ${v === val ? 'selected' : ''}>${v}</option>`);
@@ -539,18 +564,31 @@
       return html;
     }
     
-    // No. PO input teks biasa (bukan select)
+    // Tanggal (input date)
+    const currentTgl = tds[0].innerText;
+    const tglForInput = formatDateForInput(currentTgl);
+    tds[0].innerHTML = `<input type="date" value="${tglForInput}" style="width:100%;">`;
+    
+    // No. PO (input teks)
     const currentPO = tds[1].innerText === '-' ? '' : tds[1].innerText;
     tds[1].innerHTML = `<input type="text" value="${currentPO}" style="width:100%;" placeholder="No. PO">`;
     
+    // Brand (input teks)
+    const currentBrand = tds[2].innerText === '-' ? '' : tds[2].innerText;
+    tds[2].innerHTML = `<input type="text" value="${currentBrand}" style="width:100%;" placeholder="Brand">`;
+    
+    // Line, OP, Jenis, Size, Paper (select dropdown)
     tds[3].innerHTML = toSelect(lineList, tds[3].innerText);
     tds[4].innerHTML = toSelect(opList, tds[4].innerText);
     tds[5].innerHTML = toSelect(jenisList, tds[5].innerText);
     tds[6].innerHTML = toSelect(sizeList, tds[6].innerText);
     tds[7].innerHTML = toSelect(paperList, tds[7].innerText);
+    
+    // Permintaan dan Kirim (input number)
     tds[8].innerHTML = `<input type="number" value="${tds[8].innerText}" style="width:70px;">`;
     tds[9].innerHTML = `<input type="number" value="${tds[9].innerText}" style="width:70px;">`;
     
+    // Ubah tombol menjadi 💾
     btn.innerText = '💾';
     btn.classList.remove('btn-warning');
     btn.classList.add('btn-success');
@@ -575,13 +613,12 @@
     }
   };
 
-  // ============== EXPORT EXCEL (DITAMBAH NO. PO) ==============
+  // ============== EXPORT EXCEL ==============
   async function exportExcel() {
     try {
-      // Ambil SEMUA data yang sesuai filter (tanpa pagination)
       const query = buildQuery();
       const { data, error } = await query
-        .order('tanggal', { ascending: true })   // ASCENDING (lama di atas)
+        .order('tanggal', { ascending: true })
         .order('created_at', { ascending: true });
       
       if (error) throw error;
@@ -591,7 +628,6 @@
         return;
       }
       
-      // Buat worksheet dengan kolom No. PO
       const wsData = [['Tanggal', 'No. PO', 'Brand', 'Line', 'OP', 'Jenis', 'Size', 'Paper', 'Permintaan', 'Kirim']];
       
       data.forEach(d => {
@@ -613,7 +649,6 @@
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       XLSX.utils.book_append_sheet(wb, ws, 'Data');
       
-      // Nama file dengan tanggal
       const tgl = new Date().toISOString().slice(0,10);
       XLSX.writeFile(wb, `permintaan_barang_${tgl}.xlsx`);
       
@@ -622,7 +657,7 @@
     }
   }
 
-  // ============== KIRIM WA (DITAMBAH NO. PO) ==============
+  // ============== KIRIM WA ==============
   function kirimWA() {
     if (currentData.length === 0) {
       alert('Tidak ada data');
@@ -631,13 +666,13 @@
     
     let pesan = `📦 *PERMINTAAN BARANG*\nHalaman ${currentPage}\n\n`;
     currentData.forEach(d => {
-      pesan += `• ${formatTanggalID(d.tanggal)} | PO: ${d.nopo || '-'} | ${d.line} | ${d.jenis} | ${d.permintaan}/${d.kirim}\n`;
+      pesan += `• ${formatTanggalID(d.tanggal)} | PO: ${d.nopo || '-'} | ${d.brand} | ${d.line} | ${d.jenis} | ${d.permintaan}/${d.kirim}\n`;
     });
     
     window.open('https://wa.me/?text=' + encodeURIComponent(pesan));
   }
 
-  // ============== EVENT LISTENERS (TAMBAH FILTER PO) ==============
+  // ============== EVENT LISTENERS ==============
   [fTanggal, fPO, fLine, fOP, fJenis, fSize, fPaper].forEach(el => {
     el.addEventListener('change', () => {
       currentPage = 1;
@@ -654,7 +689,7 @@
   
   btnReset.addEventListener('click', () => {
     fTanggal.value = '';
-    fPO.value = ''; // Reset No. PO
+    fPO.value = '';
     fBrand.value = '';
     fLine.value = '';
     fOP.value = '';
