@@ -1,8 +1,0 @@
-{
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install --legacy-peer-deps --no-audit --no-fund",
-  "framework": "vite",
-  "regions": ["sin1"]
-}
