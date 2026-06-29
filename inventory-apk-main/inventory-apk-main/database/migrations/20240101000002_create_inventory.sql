@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS inventory (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  sku VARCHAR(50) UNIQUE NOT NULL,
+  category_id UUID REFERENCES categories(id),
+  price DECIMAL(12,2) NOT NULL CHECK (price >= 0),
+  stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
+  min_stock INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
