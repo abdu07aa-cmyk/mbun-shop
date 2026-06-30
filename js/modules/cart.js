@@ -1,348 +1,213 @@
 /**
- * ================================================================
- * WARUNGKITA PRO MAX - CART MODULE
- * ================================================================
- * Operasi keranjang: add, remove, update quantity, calculate totals.
- * ================================================================
+ * js/modules/cart.js
+ * - Modul untuk operasi keranjang di POS
+ * - Tanggung jawab:
+ *   - menambahkan/menurunkan jumlah item
+ *   - menghitung subtotal, diskon, total
+ *   - hold/resume cart, clear cart
+ *   - render keranjang di #pos-cart
+ *
+ * Exports:
+ * - initCart(opts) : inisialisasi dengan selector (default '#pos-cart')
+ * - openCheckout()  : placeholder untuk proses pembayaran
+ *
+ * Modul ini menggunakan state.js helper (addToCart, removeFromCart, clearCart) dan api/state untuk sinkronisasi.
  */
 
-import { state, addToCart, removeFromCart, updateCartItemQuantity, clearCart, holdCart, restoreHoldCart } from '../state.js';
-import { formatCurrency, showToast, truncate } from '../utils.js';
-import { APP_CONFIG } from '../config.js';
+import state, { findProductById, addToCart as stateAddToCart, removeFromCart as stateRemoveFromCart, clearCart as stateClearCart } from '../state.js';
+import api from '../api.js';
+import utils from '../utils.js';
+import { TABLES } from '../config.js';
 
-// ================================================================
-// RENDER CART
-// ================================================================
+let cartRootSelector = '#pos-cart';
 
-/**
- * Render cart items
- */
-export function renderCart() {
-    const container = document.getElementById('cartItems');
-    if (!container) return;
+/* Hitung ringkasan cart */
+function summarizeCart(cart) {
+  const items = cart.items || [];
+  let subtotal = 0;
+  for (const it of items) {
+    subtotal += Number(it.price || 0) * Number(it.quantity || 0);
+  }
+  let discount = 0;
+  // diskon dari code jika diterapkan di meta
+  if (cart.meta && cart.meta.discountCode) {
+    const code = String(cart.meta.discountCode).toUpperCase();
+    const pct = (window.APP_CONFIG?.discountCodes?.[code]) ?? null; // fallback
+    if (pct) discount = Math.round(subtotal * pct);
+  }
+  const total = subtotal - discount;
+  return { items, subtotal: Math.round(subtotal), discount: Math.round(discount), total: Math.round(total) };
+}
 
-    const { cart, cartSubtotal, cartDiscount, cartTax, cartTotal } = state;
+/* Render cart UI */
+function renderCart() {
+  const s = state.getState();
+  const cart = s.cart || { items: [], meta: {} };
+  const root = document.querySelector(cartRootSelector);
+  if (!root) return;
+  root.innerHTML = '';
+  const header = document.createElement('div');
+  header.className = 'cart-header';
+  header.innerHTML = `<h3>Keranjang</h3><div class="cart-actions"><button id="btn-clear-cart" class="btn-ghost">Kosongkan</button><button id="btn-hold-cart" class="btn-ghost">Hold</button></div>`;
+  root.appendChild(header);
 
-    if (cart.length === 0) {
-        container.innerHTML = `
-            <div class="empty-cart">
-                <i class="fas fa-shopping-basket"></i>
-                <p>Keranjang kosong</p>
-                <span>Klik produk untuk menambahkan</span>
-            </div>
-        `;
-        updateCartSummary();
-        return;
-    }
-
-    container.innerHTML = cart.map(item => `
-        <div class="cart-item" data-id="${item.id}">
-            <div class="item-emoji">${item.emoji || '📦'}</div>
-            <div class="item-info">
-                <div class="item-name">${truncate(item.name, 25)}</div>
-                <div class="item-price">${formatCurrency(item.price)}</div>
-            </div>
-            <div class="item-quantity">
-                <button class="qty-btn qty-minus" data-id="${item.id}">-</button>
-                <span class="qty-value">${item.quantity}</span>
-                <button class="qty-btn qty-plus" data-id="${item.id}">+</button>
-            </div>
-            <div class="item-subtotal">${formatCurrency(item.subtotal)}</div>
-            <button class="item-remove" data-id="${item.id}" title="Hapus">
-                <i class="fas fa-times"></i>
-            </button>
+  const list = document.createElement('div');
+  list.className = 'cart-items';
+  if (!cart.items || !cart.items.length) {
+    list.innerHTML = `<div class="empty">Keranjang kosong</div>`;
+    root.appendChild(list);
+  } else {
+    for (const it of cart.items) {
+      const prod = findProductById(it.product_id) || {};
+      const li = document.createElement('div');
+      li.className = 'cart-item';
+      li.innerHTML = `
+        <div class="ci-left">
+          <div class="ci-name">${utils.escapeHtml ? utils.escapeHtml(prod.name || prod.id || '') : (prod.name || prod.id || '')}</div>
+          <div class="ci-meta">${utils.formatCurrency(it.price || prod.price || 0)} × ${it.quantity}</div>
         </div>
-    `).join('');
-
-    // Attach cart events
-    attachCartEvents();
-    updateCartSummary();
-}
-
-/**
- * Update cart summary
- */
-export function updateCartSummary() {
-    const { cartSubtotal, cartDiscount, cartTax, cartTotal } = state;
-
-    document.getElementById('cartSubtotal').textContent = formatCurrency(cartSubtotal);
-    document.getElementById('cartDiscount').textContent = `-${formatCurrency(cartDiscount)}`;
-    document.getElementById('cartTax').textContent = formatCurrency(cartTax);
-    document.getElementById('cartTotal').textContent = formatCurrency(cartTotal);
-}
-
-// ================================================================
-// CART OPERATIONS
-// ================================================================
-
-/**
- * Add product to cart
- * @param {string} productId - Product ID
- * @param {number} quantity - Quantity
- */
-export function addProductToCart(productId, quantity = 1) {
-    const product = state.products.find(p => p.id === productId);
-    if (!product) {
-        showToast('Produk tidak ditemukan!', 'error');
-        return;
+        <div class="ci-right">
+          <div class="ci-total">${utils.formatCurrency((it.price || prod.price || 0) * it.quantity)}</div>
+          <div class="ci-controls">
+            <button class="btn-xs btn-decrease" data-id="${it.product_id}">−</button>
+            <button class="btn-xs btn-increase" data-id="${it.product_id}">+</button>
+            <button class="btn-xs btn-remove" data-id="${it.product_id}"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </div>
+      `;
+      list.appendChild(li);
     }
+    root.appendChild(list);
+  }
 
-    if (product.stock <= 0) {
-        showToast('Stok produk habis!', 'error');
-        return;
-    }
+  // Summary & checkout area
+  const summary = summarizeCart(cart);
+  const footer = document.createElement('div');
+  footer.className = 'cart-summary';
+  footer.innerHTML = `
+    <div class="summary-row"><span>Subtotal</span><strong>${utils.formatCurrency(summary.subtotal)}</strong></div>
+    <div class="summary-row"><span>Diskon</span><strong>-${utils.formatCurrency(summary.discount)}</strong></div>
+    <div class="summary-row total"><span>Total</span><strong>${utils.formatCurrency(summary.total)}</strong></div>
+    <div class="summary-actions">
+      <button id="btn-checkout" class="btn-primary">Bayar (F9)</button>
+    </div>
+  `;
+  root.appendChild(footer);
 
-    // Check if already in cart
-    const existing = state.cart.find(item => item.productId === productId);
-    if (existing) {
-        const newQty = existing.quantity + quantity;
-        if (newQty > product.stock) {
-            showToast(`Stok tidak mencukupi! Tersedia: ${product.stock}`, 'error');
-            return;
-        }
-        updateCartItemQuantity(existing.id, newQty);
+  // Hook controls
+  root.querySelectorAll('.btn-remove').forEach(b => b.addEventListener('click', (e) => {
+    const id = e.currentTarget.dataset.id;
+    stateRemoveFromCart(id);
+    utils.toast('Item dihapus dari keranjang', { type: 'info' });
+  }));
+  root.querySelectorAll('.btn-decrease').forEach(b => b.addEventListener('click', (e) => {
+    const id = e.currentTarget.dataset.id;
+    // decrease by 1 or remove if qty<=1
+    const sNow = state.getState();
+    const item = (sNow.cart.items || []).find(it => String(it.product_id) === String(id));
+    if (!item) return;
+    if (item.quantity <= 1) {
+      stateRemoveFromCart(id);
     } else {
-        if (quantity > product.stock) {
-            showToast(`Stok tidak mencukupi! Tersedia: ${product.stock}`, 'error');
-            return;
-        }
-        addToCart(product, quantity);
+      // update by replacing: remove and re-add with qty-1 (we don't have update quantity API; do by setState)
+      // Simpler: directly modify state (we'll update entire cart)
+      const newItems = sNow.cart.items.map(it => (String(it.product_id) === String(id) ? { ...it, quantity: it.quantity - 1 } : it));
+      state.setState({ cart: { ...sNow.cart, items: newItems } });
     }
+  }));
+  root.querySelectorAll('.btn-increase').forEach(b => b.addEventListener('click', (e) => {
+    const id = e.currentTarget.dataset.id;
+    const sNow = state.getState();
+    const item = (sNow.cart.items || []).find(it => String(it.product_id) === String(id));
+    if (!item) return;
+    const newItems = sNow.cart.items.map(it => (String(it.product_id) === String(id) ? { ...it, quantity: it.quantity + 1 } : it));
+    state.setState({ cart: { ...sNow.cart, items: newItems } });
+  }));
 
+  const btnClear = root.querySelector('#btn-clear-cart');
+  if (btnClear) btnClear.addEventListener('click', () => {
+    stateClearCart();
+    utils.toast('Keranjang dikosongkan', { type: 'info' });
+  });
+  const btnHold = root.querySelector('#btn-hold-cart');
+  if (btnHold) btnHold.addEventListener('click', () => {
+    // Set meta hold true
+    const sNow = state.getState();
+    state.setState({ cart: { ...sNow.cart, meta: { ...(sNow.cart.meta || {}), hold: true } } });
+    utils.toast('Keranjang disimpan (hold)', { type: 'success' });
+  });
+
+  const btnCheckout = root.querySelector('#btn-checkout');
+  if (btnCheckout) btnCheckout.addEventListener('click', openCheckout);
+}
+
+/* Open checkout flow (minimal placeholder) */
+export async function openCheckout() {
+  const sNow = state.getState();
+  const cart = sNow.cart;
+  const summary = summarizeCart(cart);
+  if (!cart.items || !cart.items.length) {
+    utils.toast('Keranjang kosong', { type: 'warning' });
+    return;
+  }
+  // Buat objek transaksi lokal
+  const tx = {
+    total_amount: summary.total,
+    payment_method: 'cash',
+    payment_status: 'pending',
+    customer_name: null,
+    created_at: new Date().toISOString(),
+    discount: summary.discount || 0,
+    transaction_items: cart.items.map(it => ({ product_id: it.product_id, quantity: it.quantity, price: it.price })),
+    shift_id: null
+  };
+  // Simpan lokal via api.create (akan fallback ke local state jika SUPABASE_KEY kosong)
+  try {
+    const created = await api.create(TABLES.TRANSACTIONS, tx);
+    // Tambah juga ke state.transactions (api.create does in fallback)
+    // Reset cart
+    stateClearCart();
+    utils.toast('Transaksi dicatat', { type: 'success' });
+    // Emit event untuk UI (receipt, print, etc)
+    window.dispatchEvent(new CustomEvent('warungkita:transaction:created', { detail: { tx: created || tx } }));
+  } catch (err) {
+    console.error('Gagal membuat transaksi', err);
+    utils.toast('Gagal memproses pembayaran', { type: 'danger' });
+  }
+}
+
+/* Inisialisasi cart: bind event listeners global & subscribe state */
+export function initCart({ selector = '#pos-cart' } = {}) {
+  cartRootSelector = selector;
+  // Initial render
+  renderCart();
+
+  // Global listener: add-to-cart event from products module
+  window.addEventListener('warungkita:add-to-cart', (e) => {
+    const detail = e.detail || {};
+    const product_id = detail.product_id;
+    const qty = detail.quantity || 1;
+    const price = detail.price ?? findProductById(product_id)?.price ?? 0;
+    // Use state helper to add
+    stateAddToCart({ product_id, quantity: qty, price });
+    // Re-render will be triggered via state.subscribe
+  });
+
+  // Subscribe state changes to re-render
+  state.subscribe(() => {
     renderCart();
-    playAddSound();
-}
+  });
 
-/**
- * Remove item from cart
- * @param {string} itemId - Cart item ID
- */
-export function removeCartItem(itemId) {
-    removeFromCart(itemId);
-    renderCart();
-    playRemoveSound();
-}
-
-/**
- * Update cart item quantity
- * @param {string} itemId - Cart item ID
- * @param {number} newQuantity - New quantity
- */
-export function updateCartItemQty(itemId, newQuantity) {
-    updateCartItemQuantity(itemId, newQuantity);
-    renderCart();
-}
-
-/**
- * Clear entire cart
- */
-export function clearCartItems() {
-    if (state.cart.length === 0) return;
-
-    if (confirm('Kosongkan keranjang?')) {
-        clearCart();
-        renderCart();
-        showToast('Keranjang dikosongkan', 'info');
+  // Keyboard shortcut: F9 => checkout
+  window.addEventListener('keydown', (ev) => {
+    if (ev.key === 'F9') {
+      ev.preventDefault();
+      openCheckout();
     }
+  });
 }
-
-// ================================================================
-// CART HOLD
-// ================================================================
-
-/**
- * Hold current cart
- */
-export function holdCurrentCart() {
-    if (state.cart.length === 0) {
-        showToast('Keranjang kosong, tidak bisa disimpan', 'warning');
-        return;
-    }
-
-    const name = prompt('Nama keranjang (opsional):', `Draft ${new Date().toLocaleDateString()}`);
-    if (name === null) return; // Cancel
-
-    holdCart(name || 'Draft');
-    renderCart();
-    showToast('Keranjang disimpan!', 'success');
-}
-
-/**
- * Restore held cart
- */
-export function restoreHeldCart() {
-    if (!state.holdCart) {
-        showToast('Tidak ada keranjang yang disimpan', 'info');
-        return;
-    }
-
-    if (state.cart.length > 0) {
-        if (!confirm('Keranjang saat ini akan diganti. Lanjutkan?')) {
-            return;
-        }
-    }
-
-    restoreHoldCart();
-    renderCart();
-    showToast(`Keranjang "${state.holdCart?.name || 'Draft'}" dipulihkan`, 'success');
-}
-
-// ================================================================
-// DISCOUNT
-// ================================================================
-
-import { DISCOUNT_CODES } from '../config.js';
-
-/**
- * Apply discount code
- * @param {string} code - Discount code
- */
-export function applyDiscount(code) {
-    const discount = DISCOUNT_CODES[code.toUpperCase()];
-    if (!discount) {
-        showToast('Kode diskon tidak valid!', 'error');
-        return false;
-    }
-
-    state.appliedDiscountCode = code.toUpperCase();
-    // Recalculate cart
-    const event = new CustomEvent('cart-updated');
-    document.dispatchEvent(event);
-    renderCart();
-    showToast(`Diskon ${discount.description} diterapkan!`, 'success');
-    return true;
-}
-
-/**
- * Remove discount
- */
-export function removeDiscount() {
-    state.appliedDiscountCode = null;
-    const event = new CustomEvent('cart-updated');
-    document.dispatchEvent(event);
-    renderCart();
-    showToast('Diskon dihapus', 'info');
-}
-
-// ================================================================
-// SOUND EFFECTS
-// ================================================================
-
-/**
- * Play add to cart sound
- */
-function playAddSound() {
-    try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-
-        oscillator.frequency.value = 600;
-        oscillator.type = 'sine';
-        gainNode.gain.value = 0.1;
-
-        oscillator.start();
-        setTimeout(() => {
-            oscillator.frequency.value = 800;
-            setTimeout(() => {
-                oscillator.stop();
-            }, 100);
-        }, 100);
-    } catch (e) {
-        // Silent fail if audio not supported
-    }
-}
-
-/**
- * Play remove from cart sound
- */
-function playRemoveSound() {
-    try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-
-        oscillator.frequency.value = 500;
-        oscillator.type = 'sine';
-        gainNode.gain.value = 0.1;
-
-        oscillator.start();
-        setTimeout(() => {
-            oscillator.frequency.value = 300;
-            setTimeout(() => {
-                oscillator.stop();
-            }, 100);
-        }, 100);
-    } catch (e) {
-        // Silent fail
-    }
-}
-
-// ================================================================
-// EVENT HANDLERS
-// ================================================================
-
-/**
- * Attach cart event listeners
- */
-function attachCartEvents() {
-    // Quantity minus
-    document.querySelectorAll('.qty-minus').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const id = btn.dataset.id;
-            const item = state.cart.find(i => i.id === id);
-            if (item && item.quantity > 1) {
-                updateCartItemQty(id, item.quantity - 1);
-            } else if (item) {
-                removeCartItem(id);
-            }
-        });
-    });
-
-    // Quantity plus
-    document.querySelectorAll('.qty-plus').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const id = btn.dataset.id;
-            const item = state.cart.find(i => i.id === id);
-            if (item) {
-                const product = state.products.find(p => p.id === item.productId);
-                if (product && item.quantity < product.stock) {
-                    updateCartItemQty(id, item.quantity + 1);
-                } else {
-                    showToast(`Stok maksimum: ${product?.stock || 0}`, 'warning');
-                }
-            }
-        });
-    });
-
-    // Remove button
-    document.querySelectorAll('.item-remove').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const id = btn.dataset.id;
-            removeCartItem(id);
-        });
-    });
-}
-
-// ================================================================
-// EXPORT
-// ================================================================
 
 export default {
-    renderCart,
-    updateCartSummary,
-    addProductToCart,
-    removeCartItem,
-    updateCartItemQty,
-    clearCartItems,
-    holdCurrentCart,
-    restoreHeldCart,
-    applyDiscount,
-    removeDiscount
+  initCart,
+  openCheckout
 };
