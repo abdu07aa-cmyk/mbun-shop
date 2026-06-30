@@ -1,279 +1,106 @@
-/* ================================================================
-   WARUNGKITA PRO MAX - DESIGN SYSTEM VARIABLES
-   ================================================================
-   Semua design tokens disimpan di sini untuk konsistensi
-   seluruh aplikasi. Gunakan CSS Custom Properties untuk
-   memudahkan theming dan maintenance.
-   ================================================================ */
+/* Design tokens & variables untuk WarungKita PRO MAX
+   Semua nilai tersentralisasi di sini agar mudah disesuaikan.
+   Gunakan file ini melalui @import atau link di HTML (sudah disertakan). */
 
 :root {
-    /* ==========================================================
-       COLOR PALETTE
-       ========================================================== */
+  /* Colors */
+  --color-primary: #3b82f6;           /* Blue utama */
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1e40af;
+  --color-secondary: #06b6d4;         /* Cyan */
+  --color-success: #16a34a;           /* Hijau */
+  --color-warning: #f59e0b;           /* Kuning */
+  --color-danger: #ef4444;            /* Merah */
+  --color-muted: #6b7280;             /* Teks sekunder */
+  --color-bg: #f8fafc;                /* Latar default */
+  --color-surface: #ffffff;           /* Kartu / surface */
+  --color-glass: rgba(255,255,255,0.6);
 
-    /* Primary Colors */
-    --color-primary-50: #eff6ff;
-    --color-primary-100: #dbeafe;
-    --color-primary-200: #bfdbfe;
-    --color-primary-300: #93c5fd;
-    --color-primary-400: #60a5fa;
-    --color-primary-500: #3b82f6;
-    --color-primary-600: #2563eb;
-    --color-primary-700: #1d4ed8;
-    --color-primary-800: #1e40af;
-    --color-primary-900: #1e3a8a;
-    --color-primary-950: #172554;
+  /* Dark theme overrides (diterapkan saat data-theme="dark" pada body) */
+  --color-bg-dark: #0b1220;
+  --color-surface-dark: #0f1724;
+  --color-muted-dark: #9ca3af;
+  --color-text-dark: #e6eef8;
 
-    /* Neutral Colors */
-    --color-neutral-50: #f8fafc;
-    --color-neutral-100: #f1f5f9;
-    --color-neutral-200: #e2e8f0;
-    --color-neutral-300: #cbd5e1;
-    --color-neutral-400: #94a3b8;
-    --color-neutral-500: #64748b;
-    --color-neutral-600: #475569;
-    --color-neutral-700: #334155;
-    --color-neutral-800: #1e293b;
-    --color-neutral-900: #0f172a;
-    --color-neutral-950: #020617;
+  /* Gradients */
+  --gradient-primary: linear-gradient(90deg, #7c3aed 0%, #3b82f6 100%);
+  --gradient-green: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+  --gradient-orange: linear-gradient(90deg, #f97316 0%, #fb923c 100%);
 
-    /* Semantic Colors */
-    --color-success: #22c55e;
-    --color-success-bg: #dcfce7;
-    --color-success-border: #bbf7d0;
+  /* Typography */
+  --font-family-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  --font-weight-regular: 400;
+  --font-weight-medium: 600;
+  --font-weight-bold: 700;
+  --line-height-base: 1.4;
 
-    --color-warning: #f59e0b;
-    --color-warning-bg: #fef3c7;
-    --color-warning-border: #fde68a;
+  /* Sizing / spacing (4px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
 
-    --color-danger: #ef4444;
-    --color-danger-bg: #fee2e2;
-    --color-danger-border: #fecaca;
+  /* Border radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
 
-    --color-info: #3b82f6;
-    --color-info-bg: #dbeafe;
-    --color-info-border: #bfdbfe;
+  /* Elevation / shadows */
+  --shadow-xs: 0 1px 2px rgba(16,24,40,0.04);
+  --shadow-sm: 0 1px 3px rgba(16,24,40,0.06);
+  --shadow-md: 0 4px 12px rgba(16,24,40,0.08);
+  --shadow-lg: 0 10px 30px rgba(2,6,23,0.12);
+  --glow-primary: 0 6px 30px rgba(59,130,246,0.18);
 
-    --color-purple: #8b5cf6;
-    --color-purple-bg: #ede9fe;
-    --color-purple-border: #c4b5fd;
+  /* Transitions */
+  --transition-fast: 150ms;
+  --transition-base: 250ms;
+  --transition-slow: 350ms;
+  --transition-spring: 500ms;
 
-    --color-orange: #f97316;
-    --color-orange-bg: #ffedd5;
-    --color-orange-border: #fed7aa;
+  /* Z-index */
+  --z-sidebar: 40;
+  --z-header: 30;
+  --z-modal: 999;
+  --z-toast: 1100;
 
-    /* ==========================================================
-       THEME VARIABLES (Light Mode Default)
-       ========================================================== */
+  /* Breakpoints */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
 
-    /* Backgrounds */
-    --bg-primary: #ffffff;
-    --bg-secondary: #f8fafc;
-    --bg-tertiary: #f1f5f9;
-    --bg-sidebar: #0f172a;
-    --bg-sidebar-hover: #1e293b;
-    --bg-card: #ffffff;
-    --bg-input: #f1f5f9;
-    --bg-modal: rgba(15, 23, 42, 0.6);
-    --bg-hover: #f1f5f9;
-    --bg-active: #eff6ff;
+  /* Other */
+  --border-strong: 1px solid rgba(15,23,42,0.06);
+  --glass-blur: 6px;
 
-    /* Text Colors */
-    --text-primary: #0f172a;
-    --text-secondary: #475569;
-    --text-muted: #94a3b8;
-    --text-inverse: #ffffff;
-    --text-link: #3b82f6;
-
-    /* Borders */
-    --border-color: #e2e8f0;
-    --border-focus: #3b82f6;
-    --border-radius-sm: 6px;
-    --border-radius-md: 10px;
-    --border-radius-lg: 16px;
-    --border-radius-xl: 24px;
-
-    /* Shadows */
-    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
-    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04);
-    --shadow-2xl: 0 25px 50px rgba(0, 0, 0, 0.25);
-    --shadow-glow: 0 0 30px rgba(59, 130, 246, 0.3);
-    --shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.3);
-
-    /* ==========================================================
-       TYPOGRAPHY
-       ========================================================== */
-
-    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
-        Roboto, Oxygen, Ubuntu, sans-serif;
-
-    --font-size-xs: 0.75rem;    /* 12px */
-    --font-size-sm: 0.875rem;   /* 14px */
-    --font-size-base: 1rem;     /* 16px */
-    --font-size-lg: 1.125rem;   /* 18px */
-    --font-size-xl: 1.25rem;    /* 20px */
-    --font-size-2xl: 1.5rem;    /* 24px */
-    --font-size-3xl: 1.875rem;  /* 30px */
-    --font-size-4xl: 2.25rem;   /* 36px */
-    --font-size-5xl: 3rem;      /* 48px */
-
-    --font-weight-light: 300;
-    --font-weight-normal: 400;
-    --font-weight-medium: 500;
-    --font-weight-semibold: 600;
-    --font-weight-bold: 700;
-    --font-weight-extrabold: 800;
-    --font-weight-black: 900;
-
-    --line-height-tight: 1.25;
-    --line-height-normal: 1.5;
-    --line-height-loose: 1.75;
-
-    --letter-spacing-tight: -0.025em;
-    --letter-spacing-normal: 0;
-    --letter-spacing-wide: 0.025em;
-
-    /* ==========================================================
-       SPACING (4px Grid System)
-       ========================================================== */
-
-    --spacing-0: 0;
-    --spacing-1: 0.25rem;    /* 4px */
-    --spacing-2: 0.5rem;     /* 8px */
-    --spacing-3: 0.75rem;    /* 12px */
-    --spacing-4: 1rem;       /* 16px */
-    --spacing-5: 1.25rem;    /* 20px */
-    --spacing-6: 1.5rem;     /* 24px */
-    --spacing-8: 2rem;       /* 32px */
-    --spacing-10: 2.5rem;    /* 40px */
-    --spacing-12: 3rem;      /* 48px */
-    --spacing-16: 4rem;      /* 64px */
-    --spacing-20: 5rem;      /* 80px */
-    --spacing-24: 6rem;      /* 96px */
-    --spacing-32: 8rem;      /* 128px */
-
-    /* ==========================================================
-       TRANSITIONS
-       ========================================================== */
-
-    --transition-fast: 150ms ease;
-    --transition-base: 250ms ease;
-    --transition-slow: 350ms ease;
-    --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
-
-    /* ==========================================================
-       Z-INDEX
-       ========================================================== */
-
-    --z-dropdown: 1000;
-    --z-sticky: 1020;
-    --z-modal: 1050;
-    --z-tooltip: 1070;
-    --z-toast: 1090;
-
-    /* ==========================================================
-       SIDEBAR
-       ========================================================== */
-
-    --sidebar-width: 260px;
-    --sidebar-collapsed: 72px;
-    --header-height: 64px;
-
-    /* ==========================================================
-       SCROLLBAR
-       ========================================================== */
-
-    --scrollbar-width: 6px;
-    --scrollbar-track: transparent;
-    --scrollbar-thumb: #cbd5e1;
-    --scrollbar-thumb-hover: #94a3b8;
-
-    /* ==========================================================
-       GRADIENTS
-       ========================================================== */
-
-    --gradient-primary: linear-gradient(135deg, #3b82f6, #8b5cf6);
-    --gradient-success: linear-gradient(135deg, #22c55e, #16a34a);
-    --gradient-danger: linear-gradient(135deg, #ef4444, #dc2626);
-    --gradient-warning: linear-gradient(135deg, #f59e0b, #d97706);
-    --gradient-purple: linear-gradient(135deg, #8b5cf6, #6d28d9);
-    --gradient-orange: linear-gradient(135deg, #f97316, #ea580c);
-    --gradient-header: linear-gradient(135deg, #0f172a, #1e293b);
+  /* Currency & locale (dipakai di JS juga) */
+  --currency-symbol: "Rp";
+  --currency-locale: "id-ID";
 }
 
-/* ================================================================
-   DARK MODE
-   ================================================================ */
-
-[data-theme="dark"] {
-    /* Backgrounds */
-    --bg-primary: #0f172a;
-    --bg-secondary: #1e293b;
-    --bg-tertiary: #334155;
-    --bg-sidebar: #020617;
-    --bg-sidebar-hover: #1e293b;
-    --bg-card: #1e293b;
-    --bg-input: #334155;
-    --bg-modal: rgba(2, 6, 23, 0.8);
-    --bg-hover: #334155;
-    --bg-active: #1e3a8a;
-
-    /* Text Colors */
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
-    --text-inverse: #0f172a;
-
-    /* Borders */
-    --border-color: #334155;
-
-    /* Shadows (darker for dark mode) */
-    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4), 0 4px 6px rgba(0, 0, 0, 0.3);
-    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.4), 0 10px 10px rgba(0, 0, 0, 0.3);
-
-    /* Scrollbar */
-    --scrollbar-thumb: #475569;
-    --scrollbar-thumb-hover: #64748b;
-
-    /* Semantic Colors (adjusted for dark) */
-    --color-success-bg: #052e16;
-    --color-success-border: #166534;
-    --color-warning-bg: #451a03;
-    --color-warning-border: #78350f;
-    --color-danger-bg: #450a0a;
-    --color-danger-border: #991b1b;
-    --color-info-bg: #172554;
-    --color-info-border: #1e3a8a;
-    --color-purple-bg: #2e1065;
-    --color-purple-border: #581c87;
-    --color-orange-bg: #431407;
-    --color-orange-border: #9a3412;
-
-    /* Gradients (dark mode friendly) */
-    --gradient-primary: linear-gradient(135deg, #2563eb, #7c3aed);
-    --gradient-header: linear-gradient(135deg, #020617, #0f172a);
+/* Dark theme tokens (aplikasi: body[data-theme="dark"] { ... } ) */
+body[data-theme="dark"] {
+  --color-bg: var(--color-bg-dark);
+  --color-surface: var(--color-surface-dark);
+  --color-muted: var(--color-muted-dark);
+  --color-text: var(--color-text-dark);
+  --border-strong: 1px solid rgba(255,255,255,0.04);
+  --glass-blur: 10px;
 }
 
-/* ================================================================
-   SYSTEM THEME (mengikuti preferensi OS)
-   ================================================================ */
-
-@media (prefers-color-scheme: dark) {
-    [data-theme="system"] {
-        /* Dark mode variables akan diwarisi dari [data-theme="dark"] */
-        --bg-primary: #0f172a;
-        --bg-secondary: #1e293b;
-        --bg-tertiary: #334155;
-        --bg-card: #1e293b;
-        --bg-input: #334155;
-        --text-primary: #f1f5f9;
-        --text-secondary: #94a3b8;
-        --border-color: #334155;
-    }
+/* Small utility helper: prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-base: 0ms;
+    --transition-fast: 0ms;
+    --transition-slow: 0ms;
+  }
 }
