@@ -439,7 +439,8 @@ let editingProductId = null;
 // ============================================================
 // 3. SUPABASE CLIENT
 // ============================================================
-const supabase = supabaseClient.createClient(SUPABASE_URL, SUPABASE_KEY);
+// ✅ YANG BENAR (pakai nama berbeda)
+const supabaseClientInstance = supabaseClient.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============================================================
 // 4. FUNGSI UTILITY
