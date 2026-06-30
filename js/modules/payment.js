@@ -1,450 +1,379 @@
 /**
- * ================================================================
- * WARUNGKITA PRO MAX - PAYMENT MODULE
- * ================================================================
- * Proses pembayaran, QRIS, struk, dan integrasi pembayaran.
- * ================================================================
+ * js/modules/payment.js
+ * - Modul Payment: QRIS, split-payment, receipt UI (modal), print, share (WhatsApp/Email)
+ * - Menggunakan QRCode.js (dimuat di index.html), api.js, state.js, utils.js
+ *
+ * Cara pakai:
+ * - import paymentModule dan panggil initPayment() dari main.js
+ * - Modul akan mendengarkan event 'warungkita:transaction:created' dan menampilkan struk
+ *
+ * Catatan:
+ * - Modul ini tidak menyimpan kunci apapun. Semua panggilan ke API menggunakan api.create/update.
+ * - Untuk QRIS, payload QR disediakan sebagai teks singkat (sesuaikan bila butuh format QRIS resmi).
  */
 
-import { state, addTransaction, updateStock, addCustomerPoints } from '../state.js';
-import { formatCurrency, formatDate, generateInvoiceNumber, showToast } from '../utils.js';
-import { APP_CONFIG } from '../config.js';
+import api from '../api.js';
+import state from '../state.js';
+import utils from '../utils.js';
+import { TABLES } from '../config.js';
 
-// ================================================================
-// PAYMENT PROCESSING
-// ================================================================
+/* Utility lokal */
+const modalRootId = 'modal-root';
 
-/**
- * Open payment modal
- */
-export function openPaymentModal() {
-    const cart = state.cart;
-    if (cart.length === 0) {
-        showToast('Keranjang kosong!', 'warning');
-        return;
-    }
+/* Inisialisasi modul payment: bind event listener */
+export function initPayment() {
+  // Tampilkan receipt ketika transaksi baru dibuat
+  window.addEventListener('warungkita:transaction:created', (e) => {
+    const tx = e.detail?.tx;
+    if (!tx) return;
+    showReceipt(tx);
+  });
 
-    const modal = document.getElementById('paymentModal');
-    const itemsContainer = document.getElementById('paymentItems');
-    const subtotalEl = document.getElementById('paymentSubtotal');
-    const discountEl = document.getElementById('paymentDiscount');
-    const totalEl = document.getElementById('paymentTotal');
-
-    // Render items
-    itemsContainer.innerHTML = cart.map(item => `
-        <div class="payment-item">
-            <span>${item.emoji || '📦'} ${item.name} × ${item.quantity}</span>
-            <span>${formatCurrency(item.subtotal)}</span>
-        </div>
-    `).join('');
-
-    // Update totals
-    subtotalEl.textContent = formatCurrency(state.cartSubtotal);
-    discountEl.textContent = `-${formatCurrency(state.cartDiscount)}`;
-    totalEl.textContent = formatCurrency(state.cartTotal);
-
-    // Reset payment form
-    document.getElementById('paymentAmount').value = state.cartTotal;
-    document.getElementById('paymentCustomer').value = '';
-    document.getElementById('paymentMethod').value = 'Tunai';
-
-    // Hide QRIS container
-    document.getElementById('qrisContainer').style.display = 'none';
-
-    // Reset method buttons
-    document.querySelectorAll('.payment-method-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-
-    modal.classList.add('active');
+  // Jika sudah ada transaksi di state (mis. reload), tidak otomatis show
+  // Expose API ke global untuk debugging
+  window.WarungKitaPayment = {
+    showReceipt,
+    processSplitPayment,
+    createQRCode,
+    sendReceiptViaWhatsApp,
+    sendReceiptViaEmail
+  };
 }
 
-/**
- * Close payment modal
- */
-export function closePaymentModal() {
-    const modal = document.getElementById('paymentModal');
-    modal.classList.remove('active');
-}
+/* Render modal receipt di #modal-root */
+export function showReceipt(txRaw) {
+  const tx = normalizeTx(txRaw);
+  const root = document.getElementById(modalRootId);
+  if (!root) {
+    console.warn('Modal root tidak ditemukan:', modalRootId);
+    return;
+  }
 
-/**
- * Process payment
- */
-export function processPayment() {
-    const { cart, cartTotal, cartSubtotal, cartDiscount, cartTax, appliedDiscountCode } = state;
-
-    if (cart.length === 0) {
-        showToast('Keranjang kosong!', 'error');
-        return;
-    }
-
-    // Get payment details
-    const method = document.querySelector('.payment-method-btn.active')?.dataset.method || 'Tunai';
-    const amount = parseInt(document.getElementById('paymentAmount').value);
-    const customerName = document.getElementById('paymentCustomer').value.trim() || 'Umum';
-
-    // Validate payment
-    if (amount < cartTotal) {
-        showToast('Jumlah bayar kurang dari total!', 'error');
-        return;
-    }
-
-    // Process payment
-    try {
-        // Create transaction
-        const transaction = {
-            id: generateInvoiceNumber(),
-            total_amount: cartTotal,
-            subtotal: cartSubtotal,
-            discount: cartDiscount,
-            tax: cartTax,
-            payment_method: method,
-            payment_status: 'completed',
-            customer_name: customerName,
-            discount_code: appliedDiscountCode,
-            items: cart.map(item => ({
-                product_id: item.productId,
-                product_name: item.name,
-                quantity: item.quantity,
-                price: item.price,
-                subtotal: item.subtotal
-            }))
-        };
-
-        // Save transaction
-        addTransaction(transaction);
-
-        // Update stock
-        cart.forEach(item => {
-            updateStock(item.productId, -item.quantity, `Penjualan: ${transaction.id}`);
-        });
-
-        // Add customer points if not guest
-        if (customerName !== 'Umum') {
-            const points = Math.floor(cartTotal / 10000); // 1 point per 10k
-            if (points > 0) {
-                // Find or create customer
-                let customer = state.customers.find(c => c.name === customerName);
-                if (customer) {
-                    addCustomerPoints(customer.id, points);
-                }
-                // If customer not found, we could create one
-            }
-        }
-
-        // Show receipt
-        showReceipt(transaction);
-
-        // Clear cart
-        state.cart = [];
-        state.cartSubtotal = 0;
-        state.cartDiscount = 0;
-        state.cartTax = 0;
-        state.cartTotal = 0;
-        state.appliedDiscountCode = null;
-
-        // Close payment modal
-        closePaymentModal();
-
-        // Update UI
-        const event = new CustomEvent('cart-cleared');
-        document.dispatchEvent(event);
-
-        showToast('Pembayaran berhasil!', 'success');
-        playPaymentSound();
-
-    } catch (error) {
-        console.error('Payment failed:', error);
-        showToast('Pembayaran gagal: ' + error.message, 'error');
-    }
-}
-
-// ================================================================
-// QRIS PAYMENT
-// ================================================================
-
-/**
- * Generate QRIS for payment
- */
-export function generateQRIS() {
-    const total = state.cartTotal;
-    const qrisContainer = document.getElementById('qrisContainer');
-    const qrContainer = document.getElementById('qrcode');
-
-    // Clear previous QR
-    qrContainer.innerHTML = '';
-
-    // Generate QRIS code (simulated)
-    const qrisData = `QRIS|${APP_CONFIG.appName}|${total}|${Date.now()}`;
-
-    if (typeof QRCode !== 'undefined') {
-        new QRCode(qrContainer, {
-            text: qrisData,
-            width: 200,
-            height: 200,
-            colorDark: '#000000',
-            colorLight: '#ffffff',
-            correctLevel: QRCode.CorrectLevel.H
-        });
-    } else {
-        // Fallback
-        qrContainer.innerHTML = `
-            <div style="padding: var(--spacing-4); background: white; border-radius: var(--border-radius-md);">
-                <i class="fas fa-qrcode" style="font-size: 4rem; color: black;"></i>
-                <p style="margin-top: var(--spacing-2); font-size: var(--font-size-sm);">QRIS ${formatCurrency(total)}</p>
-            </div>
-        `;
-    }
-
-    qrisContainer.style.display = 'block';
-}
-
-// ================================================================
-// RECEIPT
-// ================================================================
-
-/**
- * Show receipt
- * @param {Object} transaction - Transaction data
- */
-export function showReceipt(transaction) {
-    const modal = document.getElementById('receiptModal');
-    const container = document.getElementById('receiptContent');
-
-    const receiptHTML = `
-        <div class="receipt">
+  // Buat markup modal
+  const html = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true">
+      <div class="modal receipt-modal" role="document" aria-labelledby="receipt-title">
+        <header class="modal-header">
+          <h3 id="receipt-title">Struk Transaksi</h3>
+          <button class="btn-icon btn-close" aria-label="Tutup">&times;</button>
+        </header>
+        <div class="modal-body">
+          <div class="receipt">
             <div class="receipt-header">
-                <h3>${APP_CONFIG.printSettings.companyName}</h3>
-                <p>${APP_CONFIG.printSettings.companyAddress}</p>
-                <p>${APP_CONFIG.printSettings.companyPhone}</p>
-                <hr>
-                <p><small>${transaction.id}</small></p>
-                <p><small>${formatDate(transaction.createdAt)}</small></p>
+              <h4>WarungKita PRO MAX</h4>
+              <div class="receipt-meta">
+                <div>No. Transaksi: <strong>${escapeHtml(String(tx.id ?? '—'))}</strong></div>
+                <div>Tanggal: ${escapeHtml(new Date(tx.created_at).toLocaleString('id-ID'))}</div>
+              </div>
             </div>
 
             <div class="receipt-items">
-                ${transaction.items.map(item => `
-                    <div class="receipt-item">
-                        <span class="item-name">${item.product_name}</span>
-                        <span class="item-qty">×${item.quantity}</span>
-                        <span class="item-price">${formatCurrency(item.subtotal)}</span>
-                    </div>
-                `).join('')}
+              ${renderItemsHtml(tx.transaction_items || [])}
             </div>
 
-            <div class="receipt-totals">
-                <div class="total-row">
-                    <span>Subtotal</span>
-                    <span>${formatCurrency(transaction.subtotal)}</span>
-                </div>
-                ${transaction.discount > 0 ? `
-                    <div class="total-row">
-                        <span>Diskon</span>
-                        <span>-${formatCurrency(transaction.discount)}</span>
-                    </div>
-                ` : ''}
-                ${transaction.tax > 0 ? `
-                    <div class="total-row">
-                        <span>Pajak (11%)</span>
-                        <span>${formatCurrency(transaction.tax)}</span>
-                    </div>
-                ` : ''}
-                <div class="total-row grand-total">
-                    <span>TOTAL</span>
-                    <span>${formatCurrency(transaction.total_amount)}</span>
-                </div>
+            <div class="receipt-summary">
+              <div class="row"><span>Subtotal</span><strong>${utils.formatCurrency(tx.subtotal || calcSubtotal(tx.transaction_items || []))}</strong></div>
+              <div class="row"><span>Diskon</span><strong>-${utils.formatCurrency(tx.discount || 0)}</strong></div>
+              <div class="row total"><span>Total</span><strong>${utils.formatCurrency(tx.total_amount || calcSubtotal(tx.transaction_items || []) - (tx.discount || 0))}</strong></div>
+              <div class="row"><span>Metode</span><strong id="receipt-method">${escapeHtml(tx.payment_method || '–')}</strong></div>
+              <div class="row"><span>Status</span><strong id="receipt-status">${escapeHtml(tx.payment_status || 'pending')}</strong></div>
             </div>
 
-            <div class="receipt-footer">
-                <p>Metode: ${transaction.payment_method}</p>
-                <p>Pelanggan: ${transaction.customer_name}</p>
-                ${transaction.discount_code ? `<p>Kode: ${transaction.discount_code}</p>` : ''}
-                <hr>
-                <p>${APP_CONFIG.printSettings.footer}</p>
+            <div class="receipt-actions">
+              <div class="left">
+                <button id="btn-print-receipt" class="btn-ghost">Cetak</button>
+                <button id="btn-download-html" class="btn-ghost">Unduh HTML</button>
+              </div>
+              <div class="right">
+                <button id="btn-whatsapp" class="btn-primary">Kirim via WhatsApp</button>
+                <button id="btn-email" class="btn-ghost">Kirim via Email</button>
+              </div>
             </div>
+
+            <div id="qris-area" class="receipt-qris" style="margin-top:12px; display: ${tx.payment_method === 'qris' ? 'block' : 'none'};">
+              <div class="qris-instruction">Scan QR untuk membayar:</div>
+              <div id="qrcode-container" class="qrcode-container" style="margin-top:8px;"></div>
+            </div>
+
+            <div id="split-area" style="margin-top:12px; display: none;">
+              <!-- area untuk split payment jika dibutuhkan -->
+            </div>
+
+          </div>
         </div>
-    `;
+      </div>
+    </div>
+  `;
 
-    container.innerHTML = receiptHTML;
-    modal.classList.add('active');
+  // Bersihkan modal root dan pasang modal baru
+  root.innerHTML = html;
 
-    // Auto print
-    setTimeout(() => {
-        printReceipt();
-    }, 500);
+  // Hook tombol close
+  const closeBtn = root.querySelector('.btn-close');
+  closeBtn?.addEventListener('click', closeModal);
+
+  // Hook print & download
+  root.querySelector('#btn-print-receipt')?.addEventListener('click', () => printReceipt(tx));
+  root.querySelector('#btn-download-html')?.addEventListener('click', () => downloadReceiptHtml(tx));
+  root.querySelector('#btn-whatsapp')?.addEventListener('click', () => sendReceiptViaWhatsApp(tx));
+  root.querySelector('#btn-email')?.addEventListener('click', () => sendReceiptViaEmail(tx));
+
+  // Jika metode QRIS, buat QR
+  if (tx.payment_method === 'qris') {
+    const qCont = root.querySelector('#qrcode-container');
+    const qrPayload = generateQrisPayload(tx);
+    createQRCode(qCont, qrPayload);
+  }
+
+  // Remove modal when backdrop clicked (outside dialog)
+  root.querySelector('.modal-backdrop')?.addEventListener('click', (ev) => {
+    if (ev.target.classList.contains('modal-backdrop')) closeModal();
+  });
+
+  // Prevent scroll on body
+  document.body.style.overflow = 'hidden';
+
+  // Show split area if transaction marked as split-payment
+  if (tx.payment_method === 'split' && Array.isArray(tx.splits)) {
+    populateSplitArea(tx);
+  }
+
+  // Emit event that modal shown
+  window.dispatchEvent(new CustomEvent('warungkita:receipt:shown', { detail: { tx } }));
 }
 
-/**
- * Print receipt
- */
-export function printReceipt() {
-    const content = document.getElementById('receiptContent');
-    if (!content) return;
-
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
-    if (!printWindow) {
-        showToast('Mohon izinkan popup untuk print', 'warning');
-        return;
-    }
-
-    const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Struk ${APP_CONFIG.appName}</title>
-            <style>
-                body {
-                    font-family: 'Courier New', monospace;
-                    margin: 0;
-                    padding: 20px;
-                    background: white;
-                    color: black;
-                }
-                .receipt {
-                    max-width: 300px;
-                    margin: 0 auto;
-                }
-                .receipt-header {
-                    text-align: center;
-                    border-bottom: 2px dashed #000;
-                    padding-bottom: 10px;
-                    margin-bottom: 10px;
-                }
-                .receipt-header h3 {
-                    margin: 0;
-                    font-size: 18px;
-                }
-                .receipt-header p {
-                    margin: 4px 0;
-                    font-size: 12px;
-                    color: #666;
-                }
-                .receipt-item {
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 4px 0;
-                    font-size: 12px;
-                }
-                .receipt-item .item-name {
-                    flex: 1;
-                }
-                .receipt-item .item-qty {
-                    margin: 0 8px;
-                    color: #666;
-                }
-                .receipt-totals {
-                    border-top: 2px dashed #000;
-                    padding-top: 10px;
-                    margin-top: 10px;
-                }
-                .total-row {
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 4px 0;
-                    font-size: 13px;
-                }
-                .total-row.grand-total {
-                    font-size: 16px;
-                    font-weight: bold;
-                    border-top: 1px solid #000;
-                    padding-top: 8px;
-                    margin-top: 4px;
-                }
-                .receipt-footer {
-                    text-align: center;
-                    margin-top: 10px;
-                    padding-top: 10px;
-                    border-top: 2px dashed #000;
-                    font-size: 11px;
-                    color: #666;
-                }
-                hr {
-                    border: none;
-                    border-top: 1px dashed #ccc;
-                    margin: 8px 0;
-                }
-                @media print {
-                    body { padding: 0; }
-                }
-            </style>
-        </head>
-        <body>
-            ${content.innerHTML}
-            <script>
-                window.onload = function() {
-                    window.print();
-                    setTimeout(function() {
-                        window.close();
-                    }, 1000);
-                };
-            <\/script>
-        </body>
-        </html>
-    `;
-
-    printWindow.document.write(html);
-    printWindow.document.close();
+/* Close modal dan cleanup */
+function closeModal() {
+  const root = document.getElementById(modalRootId);
+  if (!root) return;
+  root.innerHTML = '';
+  document.body.style.overflow = '';
+  window.dispatchEvent(new CustomEvent('warungkita:receipt:closed'));
 }
 
-// ================================================================
-// SOUND EFFECTS
-// ================================================================
-
-/**
- * Play payment success sound
- */
-function playPaymentSound() {
-    try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const notes = [523, 659, 784, 1047];
-        notes.forEach((freq, index) => {
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.frequency.value = freq;
-            oscillator.type = 'sine';
-            gainNode.gain.value = 0.15;
-            oscillator.start(audioCtx.currentTime + index * 0.15);
-            oscillator.stop(audioCtx.currentTime + index * 0.15 + 0.2);
-        });
-    } catch (e) {
-        // Silent fail
-    }
+/* Create QR code in given container using QRCode.js */
+export function createQRCode(container, text = '') {
+  if (!container) return;
+  // Clear container
+  container.innerHTML = '';
+  const QR = window.QRCode || window.QRCodeJS || null;
+  if (!QR) {
+    // fallback: show plain text
+    container.textContent = text;
+    return;
+  }
+  // Create QR with size ~180
+  new QR(container, {
+    text: String(text || ''),
+    width: 180,
+    height: 180,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QR.CorrectLevel ? QR.CorrectLevel.H : undefined
+  });
 }
 
-// ================================================================
-// PAYMENT METHOD SELECTION
-// ================================================================
-
-/**
- * Select payment method
- * @param {string} method - Payment method
- */
-export function selectPaymentMethod(method) {
-    document.querySelectorAll('.payment-method-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.method === method);
-    });
-
-    // Show QRIS if selected
-    const qrisContainer = document.getElementById('qrisContainer');
-    if (method === 'QRIS') {
-        generateQRIS();
-    } else {
-        qrisContainer.style.display = 'none';
-    }
+/* Generate simple QRIS payload (placeholder).
+   NOTE: Untuk implementasi QRIS resmi, format dan signature diperlukan. */
+function generateQrisPayload(tx) {
+  const amount = tx.total_amount || calcSubtotal(tx.transaction_items || []) - (tx.discount || 0);
+  // Simple payload: store id, tx id, amount, and label
+  return `WKG|STORE:WarungKita|TX:${tx.id}|AMT:${Math.round(amount)}|CUR:IDR`;
 }
 
-// ================================================================
-// EXPORT
-// ================================================================
+/* Simple HTML for items */
+function renderItemsHtml(items = []) {
+  if (!items.length) return `<div class="empty">(Tidak ada item)</div>`;
+  return items.map(it => {
+    const name = escapeHtml(it.name ?? (it.product_id ?? 'Item'));
+    const qty = Number(it.quantity || 0);
+    const price = utils.formatCurrency(it.price || 0);
+    const total = utils.formatCurrency((it.price || 0) * qty);
+    return `<div class="ri-row"><div class="ri-left"><span class="ri-name">${name}</span><small class="ri-meta">x${qty}</small></div><div class="ri-right"><span class="ri-lineprice">${total}</span></div></div>`;
+  }).join('');
+}
 
-export default {
-    openPaymentModal,
-    closePaymentModal,
-    processPayment,
-    generateQRIS,
-    showReceipt,
-    printReceipt,
-    selectPaymentMethod
-};
+/* Print receipt: buka jendela baru terformat dan call print */
+export function printReceipt(txRaw) {
+  const tx = normalizeTx(txRaw);
+  const w = window.open('', '_blank', 'width=400,height=700,scrollbars=yes');
+  if (!w) {
+    utils.toast('Gagal membuka jendela cetak (popup diblokir?)', { type: 'warning' });
+    return;
+  }
+  const html = `
+    <html>
+      <head>
+        <title>Struk - ${escapeHtml(String(tx.id || 'Receipt'))}</title>
+        <meta charset="utf-8" />
+        <style>
+          body { font-family: Arial, sans-serif; padding: 16px; color: #111; }
+          h2 { margin: 0 0 8px 0; }
+          .item { display:flex; justify-content:space-between; margin:6px 0; }
+          .summary { margin-top:12px; border-top:1px dashed #ccc; padding-top:8px; }
+        </style>
+      </head>
+      <body>
+        <h2>WarungKita PRO MAX</h2>
+        <div>No. Transaksi: ${escapeHtml(String(tx.id || ''))}</div>
+        <div>Tanggal: ${escapeHtml(new Date(tx.created_at).toLocaleString('id-ID'))}</div>
+        <hr/>
+        ${(tx.transaction_items || []).map(it => `<div class="item"><div>${escapeHtml(it.name || it.product_id)}</div><div>${escapeHtml(utils.formatCurrency((it.price||0)*it.quantity))}</div></div>`).join('')}
+        <div class="summary">
+          <div class="item"><strong>Total</strong><strong>${escapeHtml(utils.formatCurrency(tx.total_amount || 0))}</strong></div>
+        </div>
+      </body>
+    </html>
+  `;
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  // Delay sedikit agar konten termuat sebelum print
+  setTimeout(() => {
+    w.focus();
+    w.print();
+    // Optionally close after printing
+    // w.close();
+  }, 400);
+}
+
+/* Download receipt as HTML file */
+function downloadReceiptHtml(txRaw) {
+  const tx = normalizeTx(txRaw);
+  const content = `
+    <html><head><meta charset="utf-8"/><title>Struk-${tx.id}</title></head><body>
+    <h3>WarungKita PRO MAX</h3>
+    <div>No. Transaksi: ${escapeHtml(String(tx.id||''))}</div>
+    <div>Tanggal: ${escapeHtml(new Date(tx.created_at).toLocaleString('id-ID'))}</div>
+    <hr/>
+    ${(tx.transaction_items || []).map(it => `<div>${escapeHtml(it.name||it.product_id)} x${it.quantity} - ${escapeHtml(utils.formatCurrency((it.price||0)*it.quantity))}</div>`).join('')}
+    <hr/>
+    <div>Total: ${escapeHtml(utils.formatCurrency(tx.total_amount||0))}</div>
+    </body></html>
+  `;
+  const filename = `struk-${String(tx.id || Date.now())}.html`;
+  utils.downloadFile(filename, content, 'text/html;charset=utf-8;');
+}
+
+/* Send receipt via WhatsApp (opens wa.me link) */
+export function sendReceiptViaWhatsApp(txRaw, phone = '') {
+  const tx = normalizeTx(txRaw);
+  // If phone not provided, try to use tx.customer_phone or ask user (here we open prompt)
+  const target = phone || tx.customer_phone || prompt('Masukkan nomor WhatsApp penerima (contoh: 6281234567890):', '');
+  if (!target) return;
+  const msg = buildReceiptText(tx);
+  const url = `https://wa.me/${encodeURIComponent(String(target).replace(/\D/g, ''))}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
+
+/* Send receipt via Email (mailto link) */
+export function sendReceiptViaEmail(txRaw, email = '') {
+  const tx = normalizeTx(txRaw);
+  const target = email || tx.customer_email || prompt('Masukkan email penerima:', '');
+  if (!target) return;
+  const subject = `Struk Transaksi ${tx.id}`;
+  const body = buildReceiptText(tx);
+  const mailto = `mailto:${encodeURIComponent(target)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
+}
+
+/* Process split payment:
+   splits: [{ method: 'cash'|'qris'|'transfer'|'ewallet', amount: number, meta?: {} }, ...]
+   Validasi jumlah sama dengan tx.total_amount. Jika OK, update transaction payment_status -> 'paid' dan payment_method -> 'split'
+*/
+export async function processSplitPayment(txRaw, splits = []) {
+  const tx = normalizeTx(txRaw);
+  const total = splits.reduce((s, it) => s + Number(it.amount || 0), 0);
+  const expect = Number(tx.total_amount || 0);
+  if (Math.round(total) !== Math.round(expect)) {
+    throw new Error(`Jumlah split (${total}) tidak sama dengan total transaksi (${expect})`);
+  }
+  // Simpan splits ke transaksi dan tandai dibayar
+  const patch = {
+    payment_method: 'split',
+    payment_status: 'paid',
+    splits: splits,
+    paid_at: new Date().toISOString()
+  };
+  // Update via API (or fallback local)
+  const updated = await api.update(TABLES.TRANSACTIONS, tx.id, patch).catch(err => {
+    console.warn('Gagal update transaction di server, lakukan update lokal', err);
+    // fallback: update state.transactions
+    const s = state.getState();
+    const txs = (s.transactions || []).map(t => (String(t.id) === String(tx.id) ? { ...t, ...patch } : t));
+    state.setState({ transactions: txs });
+    return null;
+  });
+  // Emit event completed
+  window.dispatchEvent(new CustomEvent('warungkita:transaction:paid', { detail: { txId: tx.id, splits } }));
+  return updated;
+}
+
+/* Helpers */
+
+/* Normalize transaction object: ensure fields exist and subtotal computed */
+function normalizeTx(tx) {
+  if (!tx) return {};
+  const t = { ...tx };
+  // Ensure items are enriched with name/price if missing (try lookup from state)
+  t.transaction_items = (t.transaction_items || []).map(it => {
+    // If item already has name/price, keep it
+    return { ...it };
+  });
+  // compute subtotal if needed
+  t.subtotal = calcSubtotal(t.transaction_items || []);
+  t.total_amount = t.total_amount ?? (t.subtotal - (t.discount || 0));
+  return t;
+}
+
+function calcSubtotal(items = []) {
+  let s = 0;
+  for (const it of items) {
+    s += Number(it.price || 0) * Number(it.quantity || 0);
+  }
+  return Math.round(s);
+}
+
+function buildReceiptText(tx) {
+  const lines = [];
+  lines.push('WarungKita PRO MAX');
+  lines.push(`No. Transaksi: ${tx.id}`);
+  lines.push(`Tanggal: ${new Date(tx.created_at).toLocaleString('id-ID')}`);
+  lines.push('');
+  for (const it of tx.transaction_items || []) {
+    lines.push(`${it.name || it.product_id} x${it.quantity} - ${utils.formatCurrency((it.price||0)*it.quantity)}`);
+  }
+  lines.push('');
+  lines.push(`Subtotal: ${utils.formatCurrency(tx.subtotal || 0)}`);
+  lines.push(`Diskon: -${utils.formatCurrency(tx.discount || 0)}`);
+  lines.push(`Total: ${utils.formatCurrency(tx.total_amount || 0)}`);
+  lines.push(`Metode: ${tx.payment_method || '-'}`);
+  lines.push('');
+  lines.push('Terima kasih, telah berbelanja!');
+  return lines.join('\n');
+}
+
+/* Populate split area UI if present (not fully interactive — placeholder) */
+function populateSplitArea(tx) {
+  const root = document.getElementById(modalRootId);
+  if (!root) return;
+  const splitArea = root.querySelector('#split-area');
+  if (!splitArea) return;
+  splitArea.style.display = 'block';
+  // Simple rendering of splits if any
+  if (Array.isArray(tx.splits) && tx.splits.length) {
+    splitArea.innerHTML = `<div class="split-list">${tx.splits.map(s => `<div>${escapeHtml(s.method)}: ${utils.formatCurrency(s.amount)}</div>`).join('')}</div>`;
+  } else {
+    splitArea.innerHTML = `<div class="split-empty">Pembayaran terpecah belum dikonfigurasi.</div>`;
+  }
+}
+
+/* Simple escaping (local) */
+function escapeHtml(s = '') {
+  return String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
