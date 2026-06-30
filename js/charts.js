@@ -1,6 +1,7 @@
 /**
  * js/charts.js
  * - Inisialisasi Chart.js untuk grafik penjualan (sales trend) dan helper update
+ * - Perbaikan: gunakan factory untuk membuat config agar tidak mencoba meng-clone fungsi
  */
 
 let salesChart = null;
@@ -17,6 +18,7 @@ function getDefaultConfig() {
           data: [],
           fill: true,
           backgroundColor: (ctx) => {
+            // Buat gradient runtime menggunakan ctx dari Chart.js
             const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 200);
             g.addColorStop(0, 'rgba(59,130,246,0.18)');
             g.addColorStop(1, 'rgba(59,130,246,0.02)');
@@ -53,13 +55,21 @@ function getDefaultConfig() {
       scales: {
         x: {
           grid: { display: false },
-          ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--color-muted') || '#6b7280' }
+          ticks: {
+            color:
+              (typeof document !== 'undefined' && getComputedStyle
+                ? getComputedStyle(document.documentElement).getPropertyValue('--color-muted')
+                : '') || '#6b7280'
+          }
         },
         y: {
           grid: { color: 'rgba(15,23,42,0.04)' },
           ticks: {
-            callback: val => `Rp ${Number(val).toLocaleString('id-ID')}`,
-            color: getComputedStyle(document.documentElement).getPropertyValue('--color-muted') || '#6b7280'
+            callback: (val) => `Rp ${Number(val).toLocaleString('id-ID')}`,
+            color:
+              (typeof document !== 'undefined' && getComputedStyle
+                ? getComputedStyle(document.documentElement).getPropertyValue('--color-muted')
+                : '') || '#6b7280'
           }
         }
       }
@@ -70,16 +80,19 @@ function getDefaultConfig() {
 /* Inisialisasi Chart pada canvas element */
 export function initSalesChart(canvasEl) {
   if (!canvasEl) return null;
+  // Hentikan instance lama jika ada
   if (salesChart) {
-    salesChart.destroy();
+    try { salesChart.destroy(); } catch (e) { /* ignore */ }
     salesChart = null;
   }
+
   const ChartLib = window.Chart ?? window.chartjs ?? null;
   if (!ChartLib) {
     console.warn('Chart.js tidak ditemukan. Pastikan Chart.js telah dimuat di index.html');
     return null;
   }
-  const cfg = getDefaultConfig(); // gunakan factory, bukan structuredClone
+
+  const cfg = getDefaultConfig(); // gunakan factory, bukan cloning
   salesChart = new ChartLib(canvasEl.getContext('2d'), cfg);
   return salesChart;
 }
@@ -91,11 +104,18 @@ export function updateSalesChart(data = { labels: [], totals: [] }) {
   if (salesChart.data.datasets && salesChart.data.datasets[0]) {
     salesChart.data.datasets[0].data = Array.isArray(data.totals) ? data.totals : [];
   }
-  salesChart.update('active');
+  // gunakan update yang lembut
+  try {
+    salesChart.update('active');
+  } catch (e) {
+    // fallback ke update biasa
+    salesChart.update();
+  }
 }
 
 /* Utility: konversi transaksi ke dataset sederhana (group by tanggal) */
 export function transactionsToSeries(transactions = [], period = 'day') {
+  // group by YYYY-MM-DD
   const map = new Map();
   for (const tx of transactions || []) {
     const d = tx.created_at ? new Date(tx.created_at) : new Date();
@@ -103,7 +123,7 @@ export function transactionsToSeries(transactions = [], period = 'day') {
     map.set(key, (map.get(key) || 0) + Number(tx.total_amount || 0));
   }
   const keys = Array.from(map.keys()).sort();
-  const totals = keys.map(k => Math.round(map.get(k)));
+  const totals = keys.map((k) => Math.round(map.get(k)));
   return { labels: keys, totals };
 }
 
