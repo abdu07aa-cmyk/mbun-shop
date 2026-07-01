@@ -1,0 +1,478 @@
+/* =====================================================
+   WARUNGKITA PRO MAX — COMPONENTS.CSS
+   Styling untuk komponen UI yang dipakai berulang:
+   tombol, kartu, input, badge, pill, tabel, dsb.
+   ===================================================== */
+
+/* ============== BUTTONS ============== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: var(--gradient-purple-blue);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover {
+  box-shadow: var(--shadow-md), var(--shadow-glow);
+}
+
+.btn-secondary {
+  background: var(--color-surface-alt);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+.btn-secondary:hover {
+  background: var(--color-border);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary-light);
+}
+.btn-ghost:hover {
+  background: var(--color-primary-50);
+}
+
+.btn-danger {
+  background: var(--gradient-red);
+  color: #fff;
+}
+.btn-danger:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.link-btn {
+  background: none;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+.link-btn:hover { text-decoration: underline; }
+
+.link-btn-danger {
+  background: none;
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+.link-btn-danger:hover { text-decoration: underline; }
+
+/* ---------- ICON BUTTON (tombol bulat berisi 1 ikon) ---------- */
+.icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-alt);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.icon-btn:hover {
+  background: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.badge-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  border: 2px solid var(--color-surface);
+}
+
+/* ============== CARD ============== */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-xs);
+  margin-bottom: var(--space-6);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.chart-card canvas {
+  max-height: 280px;
+}
+
+/* ============== STAT CARD (Dashboard) ============== */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  box-shadow: var(--shadow-xs);
+}
+
+.stat-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-lg);
+  color: #fff;
+  margin-bottom: var(--space-2);
+}
+
+.stat-card-icon.is-purple { background: var(--gradient-purple-blue); }
+.stat-card-icon.is-green { background: var(--gradient-green); }
+.stat-card-icon.is-orange { background: var(--gradient-orange); }
+.stat-card-icon.is-red { background: var(--gradient-red); }
+
+.stat-card-value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-extrabold);
+}
+
+.stat-card-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.stat-card-delta {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.stat-card-delta.is-up { color: var(--color-success); }
+.stat-card-delta.is-down { color: var(--color-danger); }
+
+/* ============== INPUT / FORM FIELDS ============== */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-field span {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="tel"],
+input[type="email"],
+input[type="date"],
+.select-field,
+textarea {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+input:focus,
+.select-field:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-glow);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* ============== BADGE / TAG ============== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.badge-success { background: var(--color-success-light); color: #15803d; }
+.badge-warning { background: var(--color-warning-light); color: #b45309; }
+.badge-danger  { background: var(--color-danger-light); color: #b91c1c; }
+.badge-info    { background: var(--color-info-light); color: #0e7490; }
+
+/* ============== PILL (kategori produk) ============== */
+.category-pills {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-1);
+}
+
+.pill {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  background: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-fast);
+}
+
+.pill:hover {
+  border-color: var(--color-primary-light);
+}
+
+.pill.is-active {
+  background: var(--gradient-purple-blue);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* ============== DATA TABLE ============== */
+.table-wrap {
+  overflow-x: auto;
+}
+
+.data-table {
+  font-size: var(--font-size-sm);
+}
+
+.data-table th {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.data-table tbody tr:hover {
+  background: var(--color-surface-alt);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table-empty-row td {
+  text-align: center;
+  padding: var(--space-10);
+  color: var(--color-text-muted);
+}
+
+/* ============== TOAST NOTIFICATION ============== */
+.toast-container {
+  position: fixed;
+  top: var(--space-5);
+  right: var(--space-5);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 280px;
+  max-width: 360px;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--font-size-sm);
+}
+
+.toast-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.toast.is-success .toast-icon { background: var(--color-success); }
+.toast.is-error .toast-icon { background: var(--color-danger); }
+.toast.is-warning .toast-icon { background: var(--color-warning); }
+.toast.is-info .toast-icon { background: var(--color-info); }
+
+/* ============== LOADING SCREEN ============== */
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  background: var(--color-bg);
+}
+
+.loading-logo {
+  font-size: 56px;
+}
+
+.loading-text {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-lg);
+  color: var(--color-text-primary);
+}
+
+.loading-bar {
+  width: 180px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.loading-bar span {
+  display: block;
+  height: 100%;
+  width: 40%;
+  background: var(--gradient-purple-blue);
+  border-radius: var(--radius-full);
+}
+
+/* ============== EMPTY STATE ============== */
+.cart-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-10) var(--space-4);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.cart-empty-state i {
+  font-size: var(--font-size-3xl);
+}
+
+/* ============================================================
+   MOBILE TOUCH IMPROVEMENTS
+   Minimum touch target 44px sesuai pedoman Apple HIG & WCAG
+   ============================================================ */
+
+/* Semua tombol interaktif minimal 44px tingginya di mobile */
+@media (max-width: 640px) {
+  .btn {
+    min-height: 44px;
+    font-size: var(--font-size-base);
+  }
+
+  .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .nav-item {
+    min-height: 44px;
+  }
+
+  .pill {
+    min-height: 36px;
+    padding: var(--space-2) var(--space-4);
+  }
+
+  /* Input lebih tinggi agar mudah diketuk */
+  input[type="text"],
+  input[type="number"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="email"],
+  .select-field {
+    min-height: 44px;
+    font-size: 16px; /* cegah iOS auto-zoom saat focus */
+  }
+
+  /* Kartu produk: touch-friendly */
+  .product-card {
+    min-height: 100px;
+  }
+
+  /* Item keranjang lebih mudah di-tap */
+  .cart-item {
+    min-height: 52px;
+  }
+
+  /* Baris tabel lebih tinggi */
+  .data-table td {
+    padding: var(--space-3) var(--space-2);
+  }
+
+  /* Payment method options lebih besar */
+  .payment-method-option {
+    min-height: 72px;
+    padding: var(--space-4);
+  }
+}

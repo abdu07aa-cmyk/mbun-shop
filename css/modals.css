@@ -1,0 +1,220 @@
+/* =====================================================
+   WARUNGKITA PRO MAX — MODALS.CSS
+   Styling untuk overlay modal dan seluruh varian dialog
+   (tambah produk, pembayaran, struk, dsb). Konten modal
+   dirender secara dinamis lewat JS ke dalam #modalRoot,
+   tapi class di sini menstandarkan tampilannya.
+   ===================================================== */
+
+.modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: none;
+}
+
+.modal-root.is-open {
+  display: block;
+}
+
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+}
+
+.modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2xl);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-sm { max-width: 380px; }
+.modal-md { max-width: 480px; }
+.modal-lg { max-width: 680px; }
+.modal-xl { max-width: 880px; }
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-header h3 {
+  font-size: var(--font-size-lg);
+}
+
+.modal-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  background: var(--color-surface-alt);
+}
+.modal-close-btn:hover {
+  background: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.modal-body {
+  padding: var(--space-6);
+  flex: 1;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
+  border-top: 1px solid var(--color-border);
+}
+
+/* ============== MODAL: PEMBAYARAN ============== */
+.payment-method-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.payment-method-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.payment-method-option i {
+  font-size: var(--font-size-xl);
+  color: var(--color-primary);
+}
+
+.payment-method-option.is-selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-50);
+  color: var(--color-primary);
+}
+
+.qris-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6) 0;
+}
+
+#qrisCanvas {
+  padding: var(--space-3);
+  background: #fff;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ============== MODAL: STRUK / RECEIPT ============== */
+.receipt {
+  font-family: 'Courier New', monospace;
+  font-size: var(--font-size-sm);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-sm);
+  padding: var(--space-5);
+}
+
+.receipt-header {
+  text-align: center;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.receipt-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.receipt-divider {
+  border-top: 1px dashed var(--color-border);
+  margin: var(--space-3) 0;
+}
+
+.receipt-total-row {
+  display: flex;
+  justify-content: space-between;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-base);
+}
+
+/* ============== MODAL: SPLIT PAYMENT ============== */
+.split-payment-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-3);
+}
+
+.split-payment-row select {
+  flex-shrink: 0;
+  width: auto;
+}
+
+/* ============== MODAL: AI ASSISTANT ============== */
+.ai-chat-window {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 360px;
+  overflow-y: auto;
+  margin-bottom: var(--space-4);
+}
+
+.ai-message {
+  max-width: 80%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.ai-message.is-bot {
+  align-self: flex-start;
+  background: var(--color-surface-alt);
+  border-bottom-left-radius: var(--radius-xs);
+}
+
+.ai-message.is-user {
+  align-self: flex-end;
+  background: var(--gradient-purple-blue);
+  color: #fff;
+  border-bottom-right-radius: var(--radius-xs);
+}
+
+.ai-input-row {
+  display: flex;
+  gap: var(--space-2);
+}
