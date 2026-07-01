@@ -1,0 +1,147 @@
+/* =====================================================
+   WARUNGKITA PRO MAX — ANIMATIONS.CSS
+   Keyframes dan kelas animasi yang dipakai berbagai
+   komponen: loading screen, modal, toast, kartu produk,
+   dan micro-interactions lainnya.
+   ===================================================== */
+
+/* ============== LOADING BAR ============== */
+@keyframes loadingBarMove {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(120%); }
+  100% { transform: translateX(-100%); }
+}
+
+.loading-bar span {
+  animation: loadingBarMove 1.4s ease-in-out infinite;
+}
+
+@keyframes logoFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.loading-logo {
+  animation: logoFloat 2s ease-in-out infinite;
+}
+
+/* ============== FADE IN (umum) ============== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.view {
+  animation: fadeInUp var(--transition-slow) ease;
+}
+
+/* ============== MODAL ============== */
+@keyframes modalOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalContentIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-overlay {
+  animation: modalOverlayIn var(--transition-base) ease;
+}
+
+.modal {
+  animation: modalContentIn var(--transition-spring);
+}
+
+/* ============== TOAST ============== */
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.toast {
+  animation: toastSlideIn var(--transition-spring);
+  transition: opacity var(--transition-base), transform var(--transition-base);
+}
+
+/* ============== PRODUCT CARD HOVER (KASIR) ============== */
+.product-card {
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.product-card:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary-light);
+}
+
+.product-card:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+/* ============== CART ITEM ADDED PULSE ============== */
+@keyframes cartPulse {
+  0%   { background-color: var(--color-primary-50); }
+  100% { background-color: transparent; }
+}
+
+.cart-item.is-new {
+  animation: cartPulse 0.8s ease;
+}
+
+/* ============== BADGE PULSE (notifikasi) ============== */
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+}
+
+.badge-dot:not([hidden]) {
+  animation: badgePulse 1.6s ease-in-out infinite;
+}
+
+/* ============== SPINNER (loading state tombol) ============== */
+.fa-spinner.fa-spin {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ============== SKELETON LOADING (placeholder data) ============== */
+@keyframes skeletonShimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--color-surface-alt) 25%, var(--color-border) 50%, var(--color-surface-alt) 75%);
+  background-size: 400px 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ============== SIDEBAR NAV ITEM TRANSITION ============== */
+.nav-item,
+.pill,
+.icon-btn,
+.btn {
+  will-change: transform;
+}
+
+/* ============== HORMATI PREFERENSI REDUCED MOTION ============== */
+@media (prefers-reduced-motion: reduce) {
+  .loading-bar span,
+  .loading-logo,
+  .badge-dot:not([hidden]),
+  .skeleton {
+    animation: none !important;
+  }
+}

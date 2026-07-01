@@ -1,0 +1,70 @@
+/* =====================================================
+   WARUNGKITA PRO MAX — PRINT.CSS
+   Styling khusus saat dokumen dicetak (mis. struk via
+   window.print()). Hanya elemen .receipt yang akan
+   tercetak; seluruh elemen UI lain disembunyikan agar
+   hasil cetak bersih, mirip struk thermal printer.
+   ===================================================== */
+
+@media print {
+  /* Sembunyikan semua elemen aplikasi secara default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Tampilkan hanya struk dan elemen turunannya */
+  .receipt,
+  .receipt * {
+    visibility: visible;
+  }
+
+  .receipt {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    max-width: 320px; /* mendekati lebar kertas thermal 80mm */
+    margin: 0 auto;
+    padding: 12px;
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none;
+    border: none;
+  }
+
+  .receipt-header {
+    border-bottom: 1px dashed #000;
+  }
+
+  .receipt-divider {
+    border-top: 1px dashed #000;
+  }
+
+  /* Sembunyikan elemen modal di sekitar struk (overlay, tombol, header modal) */
+  .modal-overlay {
+    position: static !important;
+    background: none !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+  }
+
+  .modal-header,
+  .modal-footer,
+  .toast-container,
+  .sidebar,
+  .topbar,
+  .loading-screen {
+    display: none !important;
+  }
+
+  /* Pastikan warna teks struk selalu hitam di atas putih untuk hemat tinta */
+  .receipt-row span,
+  .receipt-total-row span {
+    color: #000 !important;
+  }
+
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+}
