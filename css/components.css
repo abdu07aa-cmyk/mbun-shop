@@ -445,15 +445,15 @@ textarea::placeholder {
   }
 
   /* Input lebih tinggi agar mudah diketuk */
-  input[type="text"],
-  input[type="number"],
-  input[type="password"],
-  input[type="tel"],
-  input[type="email"],
-  .select-field {
-    min-height: 44px;
-    font-size: 16px; /* cegah iOS auto-zoom saat focus */
-  }
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="tel"],
+input[type="email"],
+.select-field {
+min-height: 44px;
+font-size: 16px; /* cegah iOS auto-zoom saat focus */
+}
 
   /* Kartu produk: touch-friendly */
   .product-card {
