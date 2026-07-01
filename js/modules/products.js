@@ -37,31 +37,48 @@ const ProductsModule = {
     // ========================================
     // LOAD PRODUCTS
     // ========================================
-    async loadProducts() {
+   async loadProducts() {
+    try {
+        AppState.setLoading(true);
+        const products = await API.products.getAll();
+        AppState.setProducts(products);
+        
+        // Cache ke localStorage
         try {
-            AppState.setLoading(true);
-            const products = await API.products.getAll();
-            AppState.setProducts(products);
-            
-            // Cache ke localStorage untuk offline
-            Utils.saveToStorage?.(CONFIG.storageKeys.productsCache, products);
-            
-            console.log(`✅ Loaded ${products.length} products`);
-        } catch (error) {
-            console.error('❌ Failed to load products:', error);
-            
-            // Fallback ke cache lokal
-            const cached = Utils.loadFromStorage?.(CONFIG.storageKeys.productsCache, []);
-            if (cached.length > 0) {
-                AppState.setProducts(cached);
-                Utils.toast('Menggunakan data offline (cache)', 'warning');
-            } else {
-                Utils.toast('Gagal memuat produk. Periksa koneksi internet.', 'error');
-            }
-        } finally {
-            AppState.setLoading(false);
+            localStorage.setItem(CONFIG.storageKeys.productsCache, JSON.stringify(products));
+        } catch(e) { console.warn('Cache save failed:', e); }
+        
+        console.log(`✅ Loaded ${products.length} products`);
+    } catch (error) {
+        console.error('❌ Failed to load products:', error);
+        
+        // Fallback ke cache lokal (DENGAN SAFETY CHECK)
+        let cached = [];
+        try {
+            const raw = localStorage.getItem(CONFIG.storageKeys.productsCache);
+            cached = raw ? JSON.parse(raw) : [];
+            if (!Array.isArray(cached)) cached = [];
+        } catch(e) { cached = []; }
+        
+        if (cached.length > 0) {
+            AppState.setProducts(cached);
+            Utils.toast('⚠️ Menggunakan data offline (cache)', 'warning');
+        } else {
+            // Fallback terakhir: data dummy agar UI tidak kosong
+            const dummyProducts = [
+                { id: 1, name: 'Indomie Goreng', category: 'makanan', price: 3500, stock: 50, emoji: '🍜' },
+                { id: 2, name: 'Aqua 600ml', category: 'minuman', price: 4000, stock: 30, emoji: '💧' },
+                { id: 3, name: 'Teh Botol', category: 'minuman', price: 5000, stock: 20, emoji: '🍵' },
+                { id: 4, name: 'Chitato', category: 'snack', price: 10000, stock: 15, emoji: '🥔' },
+                { id: 5, name: 'Sabun Lifebuoy', category: 'household', price: 3000, stock: 40, emoji: '🧼' }
+            ];
+            AppState.setProducts(dummyProducts);
+            Utils.toast('⚠️ Mode demo - Supabase belum terhubung', 'warning', 5000);
         }
-    },
+    } finally {
+        AppState.setLoading(false);
+    }
+}
 
     // ========================================
     // RENDER PRODUCTS GRID (POS View)
