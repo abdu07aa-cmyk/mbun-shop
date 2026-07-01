@@ -1,9 +1,9 @@
 /* =====================================================
-   WARUNGKITA PRO MAX — RESPONSIVE.CSS
-   Media queries untuk tampilan mobile & tablet. Pendekatan:
-   desktop-first (base CSS sudah untuk layar besar), lalu
-   disesuaikan ke bawah untuk layar lebih kecil.
-   ===================================================== */
+WARUNGKITA PRO MAX — RESPONSIVE.CSS
+Media queries untuk tampilan mobile & tablet. Pendekatan:
+desktop-first (base CSS sudah untuk layar besar), lalu
+disesuaikan ke bawah untuk layar lebih kecil.
+===================================================== */
 
 /* ============== TABLET (≤ 1024px) ============== */
 @media (max-width: 1024px) {
@@ -23,7 +23,7 @@
 /* ============== TABLET KECIL / MOBILE LANDSCAPE (≤ 860px) ============== */
 @media (max-width: 860px) {
   :root {
-    --sidebar-width: 240px;
+    --sidebar-width: 280px;
   }
 
   .sidebar {
@@ -32,6 +32,7 @@
     top: 0;
     transform: translateX(-100%);
     box-shadow: var(--shadow-2xl);
+    z-index: 200;
   }
 
   .app-shell.is-mobile-nav-open .sidebar {
@@ -44,6 +45,11 @@
 
   .topbar-menu-btn {
     display: inline-flex;
+  }
+
+  /* Overlay backdrop muncul saat sidebar terbuka */
+  .app-shell.is-mobile-nav-open .sidebar-backdrop {
+    display: block;
   }
 
   .pos-layout {
@@ -75,6 +81,7 @@
   .view-header-actions {
     width: 100%;
   }
+
   .view-header-actions .btn {
     flex: 1;
   }
@@ -125,6 +132,21 @@
 
   .payment-method-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* Bottom nav muncul di mobile */
+  .bottom-nav {
+    display: flex;
+  }
+
+  /* Floating cart button muncul di mobile */
+  .cart-fab {
+    display: flex;
+  }
+
+  /* Tambahkan padding bottom agar konten tidak tertutup bottom nav */
+  .view-container {
+    padding-bottom: calc(var(--space-6) + 64px);
   }
 }
 
