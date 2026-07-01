@@ -1,207 +1,251 @@
-/* =====================================================
-   WARUNGKITA PRO MAX — FEATURES/SHIFT.JS
-   Manajemen shift kasir: membuka shift dengan modal kas
-   awal, menutup shift dengan rekonsiliasi (kas akhir vs
-   kas yang seharusnya berdasarkan transaksi tunai), dan
-   menampilkan status shift di halaman "Shift Kasir".
-   ===================================================== */
+/**
+ * ============================================
+ * SHIFT MODULE
+ * ============================================
+ * Mengelola shift kasir (buka/tutup)
+ */
 
 const ShiftModule = {
-  /* ===================================================
-     RENDER: KARTU STATUS SHIFT
-     =================================================== */
+    init() {
+        console.log('%c⏰ ShiftModule initialized', 'color: #3b82f6;');
+        this.setupEventListeners();
+        this.checkCurrentShift();
+    },
 
-  renderShiftCard() {
-    const card = document.getElementById('shiftCard');
-    if (!card) return;
+    async checkCurrentShift() {
+        try {
+            // Cek dari Supabase dulu
+            const shift = await API.shifts.getCurrent();
+            
+            if (shift) {
+                AppState.setCurrentShift(shift);
+                this.updateShiftUI();
+            } else {
+                // Cek localStorage fallback
+                const saved = localStorage.getItem(CONFIG.storageKeys.currentShift);
+                if (saved) {
+                    const shiftData = JSON.parse(saved);
+                    AppState.setCurrentShift(shiftData);
+                    this.updateShiftUI();
+                } else {
+                    this.showOpenShiftView();
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Failed to check shift:', error);
+            // Fallback ke localStorage
+            const saved = localStorage.getItem(CONFIG.storageKeys.currentShift);
+            if (saved) {
+                try {
+                    AppState.setCurrentShift(JSON.parse(saved));
+                    this.updateShiftUI();
+                } catch(e) {
+                    this.showOpenShiftView();
+                }
+            } else {
+                this.showOpenShiftView();
+            }
+        }
+    },
 
-    card.innerHTML = STATE.isShiftOpen ? this._openShiftHtml() : this._closedShiftHtml();
-    this._bindShiftCardEvents();
-  },
+    showOpenShiftView() {
+        const status = document.getElementById('shiftStatus');
+        const active = document.getElementById('shiftActive');
+        if (status) status.style.display = 'block';
+        if (active) active.style.display = 'none';
+    },
 
-  _closedShiftHtml() {
-    return `
-      <div style="text-align:center; padding: var(--space-8) 0;">
-        <i class="fa-solid fa-cash-register" style="font-size: 48px; color: var(--color-text-muted); margin-bottom: var(--space-4);"></i>
-        <h3 style="margin-bottom: var(--space-2);">Shift Belum Dibuka</h3>
-        <p style="margin-bottom: var(--space-5); color: var(--color-text-secondary);">Buka shift untuk mulai mencatat transaksi hari ini.</p>
-        <button class="btn btn-primary" id="openShiftBtn"><i class="fa-solid fa-play"></i> Buka Shift</button>
-      </div>`;
-  },
+    updateShiftUI() {
+        const shift = AppState.currentShift;
+        if (!shift) {
+            this.showOpenShiftView();
+            return;
+        }
 
-  _openShiftHtml() {
-    const shift = STATE.currentShift;
-    const cashTransactions = STATE.transactions.filter(t => t.shift_id === shift.id && t.payment_method === 'cash');
-    const cashSales = cashTransactions.reduce((sum, t) => sum + (Number(t.total_amount) || 0), 0);
-    const expectedCash = Number(shift.initial_cash) + cashSales;
+        const status = document.getElementById('shiftStatus');
+        const active = document.getElementById('shiftActive');
+        
+        if (status) status.style.display = 'none';
+        if (active) active.style.display = 'block';
 
-    return `
-      <div class="stat-grid" style="margin-bottom: var(--space-6);">
-        <div class="stat-card">
-          <div class="stat-card-icon is-purple"><i class="fa-solid fa-user"></i></div>
-          <div class="stat-card-value" style="font-size: var(--font-size-lg);">${Utils.escapeHtml(shift.cashier_name)}</div>
-          <div class="stat-card-label">Kasir Bertugas</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card-icon is-green"><i class="fa-solid fa-money-bill-wave"></i></div>
-          <div class="stat-card-value">${Utils.formatCurrency(shift.initial_cash)}</div>
-          <div class="stat-card-label">Kas Awal</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card-icon is-orange"><i class="fa-solid fa-receipt"></i></div>
-          <div class="stat-card-value">${Utils.formatCurrency(cashSales)}</div>
-          <div class="stat-card-label">Penjualan Tunai (${cashTransactions.length} transaksi)</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card-icon is-purple"><i class="fa-solid fa-vault"></i></div>
-          <div class="stat-card-value">${Utils.formatCurrency(expectedCash)}</div>
-          <div class="stat-card-label">Kas Seharusnya</div>
-        </div>
-      </div>
-      <p style="color: var(--color-text-secondary); margin-bottom: var(--space-4); font-size: var(--font-size-sm);">
-        Shift dibuka ${Utils.formatDateTime(shift.opened_at)}
-      </p>
-      <button class="btn btn-danger" id="closeShiftBtn"><i class="fa-solid fa-stop"></i> Tutup Shift</button>`;
-  },
+        // Update info
+        const set = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
 
-  _bindShiftCardEvents() {
-    document.getElementById('openShiftBtn')?.addEventListener('click', () => this.openShiftModal());
-    document.getElementById('closeShiftBtn')?.addEventListener('click', () => this.closeShiftModal());
-  },
+        set('shiftCashier', shift.cashier_name || 'Admin');
+        set('shiftStartTime', Utils.formatDateTime(shift.opened_at));
+        set('shiftInitialCash', Utils.formatCurrency(shift.initial_cash || 0));
+        set('shiftTransactions', shift.total_transactions || 0);
+        set('shiftSales', Utils.formatCurrency(shift.total_sales || 0));
+    },
 
-  /* ===================================================
-     MODAL: BUKA SHIFT
-     =================================================== */
+    async openShift(cashierName, initialCash) {
+        try {
+            AppState.setLoading(true);
+            
+            const shiftData = {
+                cashier_name: cashierName,
+                initial_cash: parseInt(initialCash),
+                total_sales: 0,
+                total_transactions: 0,
+                status: 'open'
+            };
 
-  openShiftModal() {
-    ModalManager.open('openShift', {
-      title: 'Buka Shift Kasir',
-      size: 'sm',
-      bodyHtml: `
-        <div class="form-grid" style="grid-template-columns: 1fr;">
-          <label class="form-field">
-            <span>Nama Kasir</span>
-            <input type="text" id="shiftCashierInput" value="${Utils.escapeHtml(AuthModule.getCashierName())}">
-          </label>
-          <label class="form-field">
-            <span>Kas Awal (Modal Tunai)</span>
-            <input type="number" id="shiftInitialCashInput" placeholder="0" min="0">
-          </label>
-        </div>`,
-      footerHtml: `
-        <button class="btn btn-secondary" data-modal-close>Batal</button>
-        <button class="btn btn-primary" id="confirmOpenShiftBtn"><i class="fa-solid fa-play"></i> Buka Shift</button>`,
-    });
+            const newShift = await API.shifts.open(shiftData);
+            AppState.setCurrentShift(newShift);
+            this.updateShiftUI();
+            
+            Utils.closeModal('shiftModal');
+            Utils.toast('✅ Shift berhasil dibuka', 'success');
+            Utils.playSound('success');
+        } catch (error) {
+            console.error('❌ Open shift error:', error);
+            
+            // Fallback: buat shift lokal
+            const localShift = {
+                id: Date.now(),
+                cashier_name: cashierName,
+                initial_cash: parseInt(initialCash),
+                total_sales: 0,
+                total_transactions: 0,
+                status: 'open',
+                opened_at: new Date().toISOString()
+            };
+            AppState.setCurrentShift(localShift);
+            this.updateShiftUI();
+            Utils.closeModal('shiftModal');
+            Utils.toast('⚠️ Shift dibuka (mode offline)', 'warning');
+        } finally {
+            AppState.setLoading(false);
+        }
+    },
 
-    document.getElementById('confirmOpenShiftBtn')?.addEventListener('click', () => this._confirmOpenShift());
-  },
+    async closeShift(finalCash) {
+        const shift = AppState.currentShift;
+        if (!shift) return;
 
-  async _confirmOpenShift() {
-    const cashierName = document.getElementById('shiftCashierInput')?.value.trim() || 'Kasir';
-    const initialCash = Number(document.getElementById('shiftInitialCashInput')?.value) || 0;
+        try {
+            AppState.setLoading(true);
+            
+            const expected = (shift.initial_cash || 0) + (shift.total_sales || 0);
+            const difference = finalCash - expected;
 
-    const payload = {
-      cashier_name: cashierName,
-      initial_cash: initialCash,
-      final_cash: null,
-      opened_at: new Date().toISOString(),
-      closed_at: null,
-      status: 'open',
-    };
+            await API.shifts.close(
+                shift.id,
+                finalCash,
+                shift.total_sales || 0,
+                shift.total_transactions || 0
+            );
 
-    const [shift] = await API.shifts.create(payload);
+            AppState.setCurrentShift(null);
+            this.showOpenShiftView();
+            
+            Utils.closeModal('closeShiftModal');
+            
+            const diffText = difference === 0 ? 'Pas!' 
+                : difference > 0 ? `Selisih +${Utils.formatCurrency(difference)}`
+                : `Selisih ${Utils.formatCurrency(difference)}`;
+            
+            Utils.toast(`✅ Shift ditutup. ${diffText}`, difference === 0 ? 'success' : 'warning');
+            Utils.playSound('success');
+        } catch (error) {
+            console.error('❌ Close shift error:', error);
+            
+            // Fallback lokal
+            AppState.setCurrentShift(null);
+            this.showOpenShiftView();
+            Utils.closeModal('closeShiftModal');
+            Utils.toast('⚠️ Shift ditutup (mode offline)', 'warning');
+        } finally {
+            AppState.setLoading(false);
+        }
+    },
 
-    STATE.setCurrentShift(shift);
-    AuthModule.setCashierName(cashierName);
-    this._updateShiftStatusLabel();
+    setupEventListeners() {
+        // Open shift button
+        const btnOpen = document.getElementById('btnOpenShift');
+        if (btnOpen) {
+            btnOpen.addEventListener('click', () => Utils.openModal('shiftModal'));
+        }
 
-    ModalManager.close();
-    Utils.showToast(`Shift dibuka untuk ${cashierName}`, 'success');
-    this.renderShiftCard();
-  },
+        // Open shift form
+        const form = document.getElementById('shiftForm');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = document.getElementById('shiftCashierName').value;
+                const cash = document.getElementById('shiftInitialCash').value;
+                this.openShift(name, cash);
+            });
+        }
 
-  /* ===================================================
-     MODAL: TUTUP SHIFT (REKONSILIASI)
-     =================================================== */
+        // Close shift button
+        const btnClose = document.getElementById('btnCloseShift');
+        if (btnClose) {
+            btnClose.addEventListener('click', () => {
+                const shift = AppState.currentShift;
+                if (!shift) return;
 
-  closeShiftModal() {
-    const shift = STATE.currentShift;
-    const cashTransactions = STATE.transactions.filter(t => t.shift_id === shift.id && t.payment_method === 'cash');
-    const cashSales = cashTransactions.reduce((sum, t) => sum + (Number(t.total_amount) || 0), 0);
-    const expectedCash = Number(shift.initial_cash) + cashSales;
+                // Populate close shift modal
+                const set = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = val;
+                };
 
-    ModalManager.open('closeShift', {
-      title: 'Tutup Shift Kasir',
-      size: 'sm',
-      bodyHtml: `
-        <div class="summary-row"><span>Kas Awal</span><span>${Utils.formatCurrency(shift.initial_cash)}</span></div>
-        <div class="summary-row"><span>Penjualan Tunai</span><span>${Utils.formatCurrency(cashSales)}</span></div>
-        <div class="summary-row summary-row-total" style="margin-bottom: var(--space-4);"><span>Kas Seharusnya</span><span>${Utils.formatCurrency(expectedCash)}</span></div>
-        <label class="form-field">
-          <span>Kas Akhir (Hasil Hitung Fisik)</span>
-          <input type="number" id="shiftFinalCashInput" placeholder="0" min="0">
-        </label>
-        <div id="shiftDiscrepancy" style="margin-top: var(--space-3); font-size: var(--font-size-sm);"></div>
-      `,
-      footerHtml: `
-        <button class="btn btn-secondary" data-modal-close>Batal</button>
-        <button class="btn btn-danger" id="confirmCloseShiftBtn"><i class="fa-solid fa-stop"></i> Tutup Shift</button>`,
-    });
+                set('closeShiftCashier', shift.cashier_name);
+                set('closeShiftTransactions', shift.total_transactions || 0);
+                set('closeShiftSales', Utils.formatCurrency(shift.total_sales || 0));
+                set('closeShiftInitial', Utils.formatCurrency(shift.initial_cash || 0));
+                
+                const expected = (shift.initial_cash || 0) + (shift.total_sales || 0);
+                set('closeShiftExpected', Utils.formatCurrency(expected));
 
-    document.getElementById('shiftFinalCashInput')?.addEventListener('input', (e) => {
-      const finalCash = Number(e.target.value) || 0;
-      const diff = finalCash - expectedCash;
-      const el = document.getElementById('shiftDiscrepancy');
-      if (!el) return;
-      if (diff === 0) {
-        el.innerHTML = `<span class="badge badge-success">Kas sesuai ✅</span>`;
-      } else if (diff > 0) {
-        el.innerHTML = `<span class="badge badge-info">Kelebihan ${Utils.formatCurrency(diff)}</span>`;
-      } else {
-        el.innerHTML = `<span class="badge badge-danger">Kekurangan ${Utils.formatCurrency(Math.abs(diff))}</span>`;
-      }
-    });
+                // Duration
+                const start = new Date(shift.opened_at);
+                const now = new Date();
+                const diffMs = now - start;
+                const hours = Math.floor(diffMs / 3600000);
+                const mins = Math.floor((diffMs % 3600000) / 60000);
+                set('closeShiftDuration', `${hours}j ${mins}m`);
 
-    document.getElementById('confirmCloseShiftBtn')?.addEventListener('click', () => this._confirmCloseShift(expectedCash));
-  },
+                Utils.openModal('closeShiftModal');
+            });
+        }
 
-  async _confirmCloseShift(expectedCash) {
-    const finalCash = Number(document.getElementById('shiftFinalCashInput')?.value) || 0;
-    const shift = STATE.currentShift;
+        // Final cash input - calculate difference
+        const finalCashInput = document.getElementById('closeShiftFinalCash');
+        if (finalCashInput) {
+            finalCashInput.addEventListener('input', (e) => {
+                const shift = AppState.currentShift;
+                if (!shift) return;
+                
+                const final = parseInt(e.target.value) || 0;
+                const expected = (shift.initial_cash || 0) + (shift.total_sales || 0);
+                const diff = final - expected;
+                
+                const diffEl = document.getElementById('closeShiftDifference');
+                if (diffEl) {
+                    diffEl.textContent = Utils.formatCurrency(Math.abs(diff));
+                    diffEl.style.color = diff === 0 ? '#10b981' : diff > 0 ? '#3b82f6' : '#ef4444';
+                }
+            });
+        }
 
-    await API.shifts.update(shift.id, {
-      final_cash: finalCash,
-      closed_at: new Date().toISOString(),
-      status: 'closed',
-    });
+        // Confirm close shift
+        const btnConfirmClose = document.getElementById('btnConfirmCloseShift');
+        if (btnConfirmClose) {
+            btnConfirmClose.addEventListener('click', () => {
+                const finalCash = parseInt(document.getElementById('closeShiftFinalCash').value) || 0;
+                this.closeShift(finalCash);
+            });
+        }
 
-    const diff = finalCash - expectedCash;
-    STATE.setCurrentShift(null);
-    this._updateShiftStatusLabel();
-
-    ModalManager.close();
-    Utils.showToast(
-      diff === 0 ? 'Shift ditutup, kas sesuai ✅' : `Shift ditutup dengan selisih ${Utils.formatCurrency(Math.abs(diff))}`,
-      diff === 0 ? 'success' : 'warning'
-    );
-    this.renderShiftCard();
-  },
-
-  /* ===================================================
-     STATUS LABEL DI SIDEBAR
-     =================================================== */
-
-  _updateShiftStatusLabel() {
-    const label = document.getElementById('shiftStatusLabel');
-    if (!label) return;
-    label.textContent = STATE.isShiftOpen ? 'Shift sedang berjalan' : 'Shift belum dibuka';
-  },
-
-  init() {
-    STATE.subscribe('shift', () => {
-      this.renderShiftCard();
-      this._updateShiftStatusLabel();
-    });
-    this._updateShiftStatusLabel();
-  },
+        // Subscribe to shift changes
+        AppState.subscribe('shift:changed', () => this.updateShiftUI());
+    }
 };
+
+Object.freeze(ShiftModule);
+console.log('%c✅ ShiftModule loaded', 'color: #10b981;');
