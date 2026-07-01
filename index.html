@@ -411,7 +411,21 @@
   <!-- MODALS (struktur kosong, diisi/dikontrol via JS)        -->
   <!-- ===================================================== -->
   <div id="modalRoot" class="modal-root" aria-hidden="true"></div>
+<!-- Tambahkan ini di dalam form modal Tambah Produk -->
+<div class="form-field">
+  <label class="icon-selector-label">Pilih Ikon Produk:</label>
+  <input type="hidden" id="productIconInput" name="icon" value="beras"> <!-- Default: beras -->
+  <div id="productIconGrid" class="icon-selector-grid">
+    <!-- Ikon akan di-render otomatis oleh JavaScript di atas -->
+  </div>
+</div>
 
+<!-- Field lainnya (Nama, Harga, Stok, dll) -->
+<div class="form-field">
+  <label>Nama Produk</label>
+  <input type="text" id="productNameInput" placeholder="Contoh: Beras Premium 5kg">
+</div>
+<!-- ... dst ... -->
   <!-- ===================================================== -->
   <!-- TOAST CONTAINER ===================================== -->
   <!-- ========== BOTTOM NAV (Mobile Only) ========== -->
