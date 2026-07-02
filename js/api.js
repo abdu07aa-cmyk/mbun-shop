@@ -54,7 +54,11 @@ const API = {
         headers: this._headers(),
       });
 
-      if (!res.ok) throw new Error(`Gagal mengambil data ${table}: ${res.status}`);
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => null);
+        console.error(`[API] Detail error fetchAll('${table}'):`, errorBody);
+        throw new Error(`Gagal mengambil data ${table}: ${res.status}`);
+      }
 
       const data = await res.json();
       Offline.saveLocal(table, data); // simpan cache lokal untuk fallback berikutnya
@@ -85,7 +89,12 @@ const API = {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error(`Gagal menyimpan ke ${table}: ${res.status}`);
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => null);
+        console.error(`[API] Detail error insert('${table}'):`, errorBody);
+        const detail = errorBody?.message || errorBody?.hint || errorBody?.details || '';
+        throw new Error(`Gagal menyimpan ke ${table}: ${res.status}${detail ? ' — ' + detail : ''}`);
+      }
 
       const data = await res.json();
       Offline.insertLocal(table, data, { skipQueue: true }); // sync cache lokal
@@ -116,7 +125,12 @@ const API = {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error(`Gagal memperbarui ${table}: ${res.status}`);
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => null);
+        console.error(`[API] Detail error update('${table}'):`, errorBody);
+        const detail = errorBody?.message || errorBody?.hint || errorBody?.details || '';
+        throw new Error(`Gagal memperbarui ${table}: ${res.status}${detail ? ' — ' + detail : ''}`);
+      }
 
       const data = await res.json();
       Offline.updateLocal(table, filter, payload, { skipQueue: true });
@@ -145,7 +159,11 @@ const API = {
         headers: this._headers(),
       });
 
-      if (!res.ok) throw new Error(`Gagal menghapus dari ${table}: ${res.status}`);
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => null);
+        console.error(`[API] Detail error remove('${table}'):`, errorBody);
+        throw new Error(`Gagal menghapus dari ${table}: ${res.status}`);
+      }
 
       Offline.removeLocal(table, filter, { skipQueue: true });
       return true;
