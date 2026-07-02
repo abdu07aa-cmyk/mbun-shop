@@ -34,7 +34,12 @@
     box-shadow: var(--shadow-2xl);
   }
 
-  .app-shell.is-mobile-nav-open .sidebar {
+  /* FIX: sebelumnya selector ini ".app-shell.is-mobile-nav-open .sidebar"
+     tidak pernah cocok karena JS (events.js) men-toggle class
+     "is-mobile-open" langsung di elemen #sidebar, bukan class
+     "is-mobile-nav-open" di .app-shell. Disesuaikan agar sinkron
+     dengan JS supaya tombol hamburger berfungsi. */
+  .sidebar.is-mobile-open {
     transform: translateX(0);
   }
 
@@ -58,6 +63,14 @@
 
   .topbar-search {
     max-width: none;
+  }
+
+  /* FIX: cart-fab (tombol keranjang mengambang) sudah punya style
+     lengkap di layout.css tapi defaultnya display:none dan tidak
+     pernah di-set kembali jadi tampil. Ditambahkan di sini sesuai
+     komentar aslinya ("tampil di ≤ 860px"). */
+  .cart-fab {
+    display: inline-flex;
   }
 }
 
@@ -125,6 +138,24 @@
 
   .payment-method-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* FIX: bottom-nav (menu bawah ala app) sudah punya style lengkap
+     di layout.css tapi defaultnya display:none dan tidak pernah
+     di-set kembali jadi tampil. Ditambahkan di sini sesuai komentar
+     aslinya ("muncul via responsive.css di ≤ 640px"). */
+  .bottom-nav {
+    display: flex;
+  }
+
+  /* Kasih ruang kosong di bawah supaya konten & ringkasan keranjang
+     tidak ketutup bottom nav yang fixed di dasar layar. */
+  .view-container {
+    padding-bottom: calc(var(--space-4) + 64px);
+  }
+
+  .pos-cart-summary {
+    padding-bottom: calc(var(--space-5) + 64px);
   }
 }
 
