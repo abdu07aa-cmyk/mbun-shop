@@ -5,6 +5,135 @@
    disesuaikan ke bawah untuk layar lebih kecil.
    ===================================================== */
 
+/* =====================================================
+   FIX: POS PRODUCT SCROLL
+   Memastikan area produk di halaman kasir bisa di-scroll
+   vertikal dengan smooth, toolbar kategori tetap sticky,
+   dan tidak terpotong oleh topbar/cart/bottom-nav.
+   ===================================================== */
+
+/* 1. App shell & view-container harus mengisi tinggi viewport */
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.main-area {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.view-container {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden; /* cegah view-container ikut scroll */
+}
+
+/* 2. Setiap .view harus mengisi penuh container-nya */
+.view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* View kasir = layout khusus, view lain scroll normal */
+#view-kasir {
+  overflow: hidden;
+}
+
+.view:not(#view-kasir) {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 3. View kasir & pos-layout harus mengisi tinggi viewport */
+#view-kasir,
+#view-kasir .pos-layout {
+  height: 100%;
+  min-height: 0; /* PENTING! cegah flex child memaksa parent melar */
+}
+
+/* 4. Area produk jadi flex column dengan tinggi terbatas */
+.pos-products {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* KUNCI! tanpa ini, flex child tidak bisa shrink */
+  overflow: hidden;
+}
+
+/* 5. Toolbar kategori STICKY di atas, tidak ikut scroll */
+.pos-products-toolbar {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-base, #fff);
+  padding-bottom: var(--space-3, 12px);
+  border-bottom: 1px solid var(--border-subtle, #eee);
+}
+
+/* 6. Grid produk = SATU-SATUNYA yang boleh scroll */
+.product-grid {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; /* smooth scroll di iOS */
+  min-height: 0;
+  padding-top: var(--space-3, 12px);
+  align-content: start;
+  
+  /* Smooth scroll indicator (fade effect) */
+  background: 
+    linear-gradient(var(--bg-base, #fff) 30%, transparent) no-repeat,
+    linear-gradient(transparent, var(--bg-base, #fff) 70%) no-repeat;
+  background-size: 100% 40px, 100% 40px;
+  background-attachment: local, local;
+}
+
+/* Custom scrollbar untuk tampilan lebih modern */
+.product-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.product-grid::-webkit-scrollbar-track {
+  background: var(--bg-subtle, #f5f5f5);
+  border-radius: 4px;
+}
+
+.product-grid::-webkit-scrollbar-thumb {
+  background: var(--border-default, #d1d5db);
+  border-radius: 4px;
+}
+
+.product-grid::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted, #6b7280);
+}
+
+/* 7. Kasir sidebar (desktop) juga perlu scroll sendiri */
+.pos-cart {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.pos-cart-items {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+}
+
+.pos-cart-summary {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-subtle, #eee);
+}
+
 /* ============== TABLET (≤ 1024px) ============== */
 @media (max-width: 1024px) {
   .pos-layout {
@@ -95,6 +224,20 @@
   .cart-fab {
     display: inline-flex;
   }
+
+  /* MOBILE POS: sesuaikan tinggi view kasir karena topbar */
+  #view-kasir {
+    height: calc(100dvh - 60px); /* viewport - topbar */
+  }
+
+  .pos-products {
+    height: 100%;
+  }
+
+  /* Sisakan ruang untuk cart-fab di pojok kanan bawah */
+  .product-grid {
+    padding-bottom: 80px;
+  }
 }
 
 /* ============== MOBILE (≤ 640px) ============== */
@@ -179,6 +322,16 @@
 
   .pos-cart-summary {
     padding-bottom: calc(var(--space-5) + 64px);
+  }
+
+  /* MOBILE POS: sesuaikan tinggi karena ada bottom-nav */
+  #view-kasir {
+    height: calc(100dvh - 60px - 64px); /* viewport - topbar - bottom-nav */
+  }
+
+  /* Tambah padding bawah untuk cart-fab + bottom-nav */
+  .product-grid {
+    padding-bottom: 100px;
   }
 }
 
