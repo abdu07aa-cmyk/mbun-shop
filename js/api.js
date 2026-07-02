@@ -101,6 +101,7 @@ const API = {
       return data;
     } catch (err) {
       console.warn(`[API] insert('${table}') gagal, disimpan ke antrean offline:`, err.message);
+      Utils.showToast(`Gagal simpan ke server: ${err.message}`, 'error', 8000);
       Offline.queueSync('insert', table, payload);
       return Offline.insertLocal(table, payload);
     }
@@ -133,10 +134,28 @@ const API = {
       }
 
       const data = await res.json();
+
+      // Kasus khusus: request PATCH sukses (200) tapi tidak ada baris yang
+      // cocok di server — ini terjadi kalau ID yang di-update adalah ID
+      // buatan lokal (produk yang gagal ter-insert ke Supabase sebelumnya
+      // dan belum sempat disinkronkan). Perubahan tetap disimpan ke
+      // localStorage di bawah, tapi TIDAK benar-benar tersimpan di server,
+      // sehingga akan "hilang"/kembali seperti semula saat data di-fetch
+      // ulang dari Supabase (mis. setelah refresh halaman).
+      if (Array.isArray(data) && data.length === 0) {
+        console.warn(`[API] update('${table}') tidak menemukan baris cocok di server (ID mungkin belum tersinkron)`);
+        Utils.showToast(
+          'Perubahan tersimpan sementara di HP, tapi belum nyambung ke server (data lama belum tersinkron). Cek koneksi/pengaturan Supabase.',
+          'warning',
+          8000
+        );
+      }
+
       Offline.updateLocal(table, filter, payload, { skipQueue: true });
       return data;
     } catch (err) {
       console.warn(`[API] update('${table}') gagal, disimpan ke antrean offline:`, err.message);
+      Utils.showToast(`Gagal update ke server: ${err.message}`, 'error', 8000);
       Offline.queueSync('update', table, { filter, payload });
       return Offline.updateLocal(table, filter, payload);
     }
