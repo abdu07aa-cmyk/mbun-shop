@@ -55,10 +55,33 @@
     grid-template-columns: 1fr;
   }
 
+  /* FIX: .pos-cart sebelumnya cuma "position:relative" yang bikin
+     panel keranjang selalu numpuk di bawah grid produk sepanjang
+     halaman (bikin halaman jadi sangat panjang/produk terasa
+     "gak maximal" kelihatan). Selain itu class "is-cart-open" yang
+     ditoggle cart-fab (events.js) sebelumnya tidak punya efek CSS
+     sama sekali, padahal JS-nya sudah mengunci scroll body — jadi
+     kalau cart-fab kesenggol, halaman kekunci tanpa ada panel yang
+     kelihatan. Sekarang cart didesain sebagai bottom-sheet: default
+     disembunyikan di luar layar, baru slide naik saat is-cart-open. */
   .pos-cart {
-    position: relative;
-    top: 0;
-    max-height: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 80vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    transform: translateY(100%);
+    transition: transform var(--transition-base);
+    z-index: 200; /* di atas .cart-backdrop yang z-index-nya 190 */
+  }
+
+  .pos-cart.is-cart-open {
+    transform: translateY(0);
+  }
+
+  .pos-cart-items {
+    max-height: 40vh;
   }
 
   .topbar-search {
