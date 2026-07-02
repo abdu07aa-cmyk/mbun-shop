@@ -243,15 +243,15 @@ const EmojiPicker = {
    ===================================================== */
 const SEED_PRODUCTS = [
   // Sembako
-  { name: 'Beras Premium 5kg',     category: 'Sembako',         price: 75000, modal_price: 65000, stock: 50, emoji: '🌾', unit: 'kg' },
+  { name: 'Beras Premium 5kg',     category: 'Sembako',         price: 73000, modal_price: 65000, stock: 50, emoji: '🌾', unit: 'kg' },
   { name: 'Beras Medium 5kg',      category: 'Sembako',         price: 62000, modal_price: 54000, stock: 30, emoji: '🌾', unit: 'kg' },
   { name: 'Minyak Goreng 1L',      category: 'Sembako',         price: 18000, modal_price: 15000, stock: 40, emoji: '🫚', unit: 'botol' },
-  { name: 'Minyak Goreng 2L',      category: 'Sembako',         price: 34000, modal_price: 29000, stock: 25, emoji: '🫚', unit: 'botol' },
-  { name: 'Gula Pasir 1kg',        category: 'Sembako',         price: 15000, modal_price: 13000, stock: 60, emoji: '🍬', unit: 'kg' },
+  { name: 'Sunco 2L',      category: 'Sembako',         price: 34000, modal_price: 29000, stock: 25, emoji: '🫚', unit: 'botol' },
+  { name: 'Gula Gunung Madu 1kg',        category: 'Sembako',         price: 17500, modal_price: 16500, stock: 100, emoji: '🍬', unit: 'kg' },
   { name: 'Gula Pasir 500gr',      category: 'Sembako',         price: 8000,  modal_price: 7000,  stock: 40, emoji: '🍬', unit: 'bungkus' },
   { name: 'Garam Halus 250gr',     category: 'Sembako',         price: 3000,  modal_price: 2000,  stock: 80, emoji: '🧂', unit: 'bungkus' },
   { name: 'Telur Ayam 1 Butir',    category: 'Sembako',         price: 2500,  modal_price: 2000,  stock: 200,emoji: '🥚', unit: 'butir' },
-  { name: 'Telur Ayam 1/4 kg',     category: 'Sembako',         price: 9500,  modal_price: 8000,  stock: 50, emoji: '🥚', unit: 'bungkus' },
+  { name: 'Telur Ayam 1kg',     category: 'Sembako',         price: 24000,  modal_price: 21000,  stock: 50, emoji: '🥚', unit: 'bungkus' },
   { name: 'Tepung Terigu 1kg',     category: 'Sembako',         price: 12000, modal_price: 10000, stock: 30, emoji: '🫓', unit: 'kg' },
 
   // Minuman
