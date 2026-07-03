@@ -1,0 +1,162 @@
+/* =====================================================
+   WARUNGKITA PRO MAX — ANIMATIONS.CSS
+   Kumpulan @keyframes dan animasi untuk elemen-elemen UI
+   yang muncul/hilang secara dinamis (modal, toast, sidebar
+   mobile, cart mobile, loading screen, dsb). File ini tidak
+   menambah class baru di HTML — animasi ditempelkan ke
+   class yang SUDAH dipakai JS (is-open, is-visible,
+   is-mobile-open, is-cart-open) supaya tidak perlu ubah
+   file lain.
+   ===================================================== */
+
+/* ---------- KEYFRAMES DASAR ---------- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleFadeIn {
+  from { opacity: 0; transform: scale(0.94) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes slideInFromRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes pulseSoft {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.06); }
+}
+
+@keyframes spinLoader {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200px 0; }
+  to   { background-position: 200px 0; }
+}
+
+@keyframes bounceIn {
+  0%   { opacity: 0; transform: scale(0.5); }
+  60%  { opacity: 1; transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- MODAL ---------- */
+.modal-root.is-open .modal-overlay {
+  animation: fadeIn var(--transition-base) ease both;
+}
+
+.modal-root.is-open .modal {
+  animation: scaleFadeIn var(--transition-base) ease both;
+}
+
+/* Di layar mobile modal jadi bottom-sheet (lihat responsive.css),
+   jadi animasinya diganti slide dari bawah supaya senada */
+@media (max-width: 640px) {
+  .modal-root.is-open .modal {
+    animation: slideUpSheet var(--transition-base) ease both;
+  }
+}
+
+/* ---------- TOAST NOTIFICATION ---------- */
+.toast {
+  animation: slideInFromRight var(--transition-base) ease both;
+}
+
+/* ---------- SIDEBAR MOBILE ---------- */
+/* Transform slide-nya sudah diatur transition di responsive.css;
+   di sini cuma menambah sedikit "easing" yang lebih halus khusus
+   saat sidebar terbuka di mobile. */
+.sidebar {
+  transition: transform var(--transition-base) cubic-bezier(0.22, 1, 0.36, 1),
+              width var(--transition-base) ease;
+}
+
+.sidebar-backdrop.is-visible,
+.cart-backdrop.is-visible {
+  animation: fadeIn var(--transition-fast) ease both;
+}
+
+/* ---------- CART MOBILE (BOTTOM SHEET) ---------- */
+/* pos-cart.is-cart-open sudah punya transform transition di
+   responsive.css; tambahkan easing spring biar terasa lebih hidup */
+@media (max-width: 860px) {
+  .pos-cart {
+    transition: transform var(--transition-base) cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+/* ---------- TOMBOL & ICON ---------- */
+.cart-fab {
+  animation: bounceIn var(--transition-spring) ease both;
+}
+
+.bottom-nav-item.is-active i {
+  animation: pulseSoft 320ms ease;
+}
+
+.badge-dot {
+  animation: pulseSoft 1.6s ease-in-out infinite;
+}
+
+/* Spinner loading (dipakai bareng ikon fa-spinner fa-spin di JS,
+   tapi disediakan juga versi murni CSS untuk elemen tanpa Font Awesome) */
+.spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spinLoader 0.6s linear infinite;
+}
+
+/* ---------- LOADING SCREEN ---------- */
+.loading-logo {
+  animation: pulseSoft 1.4s ease-in-out infinite;
+}
+
+.loading-bar span {
+  animation: shimmer 1.2s ease-in-out infinite;
+  background: linear-gradient(90deg,
+    var(--color-primary) 0%,
+    var(--color-primary-light) 50%,
+    var(--color-primary) 100%);
+  background-size: 400px 100%;
+}
+
+/* ---------- KARTU & ELEMEN LIST (muncul halus saat pertama render) ---------- */
+.stat-card,
+.card,
+.product-card {
+  animation: fadeIn var(--transition-base) ease both;
+}
+
+/* ---------- HORMATI PREFERENSI REDUCE MOTION ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .modal-root.is-open .modal-overlay,
+  .modal-root.is-open .modal,
+  .toast,
+  .sidebar-backdrop.is-visible,
+  .cart-backdrop.is-visible,
+  .cart-fab,
+  .bottom-nav-item.is-active i,
+  .badge-dot,
+  .loading-logo,
+  .loading-bar span,
+  .stat-card,
+  .card,
+  .product-card {
+    animation: none !important;
+  }
+}
