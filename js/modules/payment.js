@@ -184,7 +184,10 @@ const PaymentModule = {
   /** Mengurangi stok setiap produk yang terjual sesuai kuantitas di keranjang */
   async _reduceStock() {
     for (const item of STATE.cart) {
-      const product = STATE.products.find(p => p.id === item.productId);
+      // FIX: item.productId berasal dari dataset HTML (selalu string),
+      // sedangkan product.id bisa berupa number/bigint dari database —
+      // disamakan ke string dulu biar produk selalu ketemu.
+      const product = STATE.products.find(p => String(p.id) === String(item.productId));
       if (!product) continue;
       const newStock = Math.max(0, product.stock - item.qty);
       await ProductsModule.update(product.id, { stock: newStock });
@@ -210,7 +213,7 @@ const PaymentModule = {
 
   _receiptHtml(t) {
     const itemRows = t.items.map(item => {
-      const product = STATE.products.find(p => p.id === item.product_id);
+      const product = STATE.products.find(p => String(p.id) === String(item.product_id));
       return `<div class="receipt-row"><span>${Utils.escapeHtml(product?.name || 'Produk')} x${item.quantity}</span><span>${Utils.formatCurrency(item.price * item.quantity)}</span></div>`;
     }).join('');
 
