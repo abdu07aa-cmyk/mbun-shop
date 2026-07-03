@@ -337,7 +337,13 @@ const AppMain = {
 
   openProductFormModal(productId = null) {
     const isEdit = productId !== null;
-    const product = isEdit ? STATE.products.find(p => p.id === productId) : null;
+    // FIX: productId dari editBtn.dataset selalu berupa string (atribut
+    // HTML), sedangkan p.id di STATE.products bisa berupa number/bigint
+    // (tergantung tipe kolom id di database). Perbandingan "===" gagal
+    // kalau tipenya beda meski nilainya sama (1 !== "1"), sehingga
+    // produk "tidak ketemu" dan form edit tampil kosong. Disamakan
+    // dulu jadi string di kedua sisi biar selalu cocok.
+    const product = isEdit ? STATE.products.find(p => String(p.id) === String(productId)) : null;
     const currentEmoji = product?.emoji || '📦';
 
     ModalManager.open('productForm', {
