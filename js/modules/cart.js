@@ -16,7 +16,12 @@ const CartModule = {
    * @param {string} productId
    */
   addItem(productId) {
-    const product = STATE.products.find(p => p.id === productId);
+    // FIX: productId dari tap kartu produk (dataset HTML) selalu string,
+    // sedangkan product.id di database bisa berupa number/bigint.
+    // Disamakan ke string biar selalu ketemu, dan cart konsisten
+    // menyimpan productId sebagai string dari sini seterusnya.
+    productId = String(productId);
+    const product = STATE.products.find(p => String(p.id) === productId);
     if (!product) {
       Utils.showToast('Produk tidak ditemukan', 'error');
       return;
@@ -38,7 +43,7 @@ const CartModule = {
       existing.subtotal = existing.qty * existing.price;
     } else {
       STATE.cart.push({
-        productId: product.id,
+        productId: String(product.id),
         name: product.name,
         price: product.price,
         emoji: product.emoji || '📦',
@@ -58,7 +63,8 @@ const CartModule = {
    * @param {number} newQty
    */
   setItemQty(productId, newQty) {
-    const product = STATE.products.find(p => p.id === productId);
+    productId = String(productId);
+    const product = STATE.products.find(p => String(p.id) === productId);
     const item = STATE.cart.find(i => i.productId === productId);
     if (!item) return;
 
@@ -79,12 +85,14 @@ const CartModule = {
 
   /** Menambah kuantitas item sebanyak 1 */
   incrementItem(productId) {
+    productId = String(productId);
     const item = STATE.cart.find(i => i.productId === productId);
     if (item) this.setItemQty(productId, item.qty + 1);
   },
 
   /** Mengurangi kuantitas item sebanyak 1 (akan menghapus jika mencapai 0) */
   decrementItem(productId) {
+    productId = String(productId);
     const item = STATE.cart.find(i => i.productId === productId);
     if (item) this.setItemQty(productId, item.qty - 1);
   },
@@ -94,6 +102,7 @@ const CartModule = {
    * @param {string} productId
    */
   removeItem(productId) {
+    productId = String(productId);
     STATE.setCart(STATE.cart.filter(item => item.productId !== productId));
   },
 
