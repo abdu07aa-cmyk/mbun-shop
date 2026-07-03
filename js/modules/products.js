@@ -167,7 +167,11 @@ const ProductsModule = {
   async update(id, changes) {
     await API.products.update(id, changes);
 
-    const updatedProducts = STATE.products.map(p => (p.id === id ? { ...p, ...changes } : p));
+    // FIX: bandingkan sebagai string, karena id dari form (dataset HTML)
+    // selalu string sedangkan p.id di STATE bisa berupa number/bigint —
+    // perbandingan "===" tanpa ini bikin tidak ada baris yang cocok,
+    // sehingga update tidak pernah tersimpan ke STATE lokal.
+    const updatedProducts = STATE.products.map(p => (String(p.id) === String(id) ? { ...p, ...changes } : p));
     STATE.setProducts(updatedProducts);
 
     Utils.showToast('Produk berhasil diperbarui', 'success');
@@ -178,12 +182,12 @@ const ProductsModule = {
    * @param {string} id
    */
   async remove(id) {
-    const product = STATE.products.find(p => p.id === id);
+    const product = STATE.products.find(p => String(p.id) === String(id));
     if (!product) return;
 
     await API.products.delete(id);
 
-    STATE.setProducts(STATE.products.filter(p => p.id !== id));
+    STATE.setProducts(STATE.products.filter(p => String(p.id) !== String(id)));
     this.renderCategoryPills();
     Utils.showToast(`Produk "${product.name}" dihapus`, 'success');
   },
