@@ -32,10 +32,10 @@ const CONFIG = {
 
   /* ---------- INFORMASI TOKO ---------- */
   STORE: {
-    NAME: 'WarungKita',
+    NAME: 'WarungMbun',
     TAGLINE: 'Belanja Hemat, Hidup Nikmat',
-    ADDRESS: 'Jl. Contoh No. 123, Jakarta',
-    PHONE: '0812-3456-7890',
+    ADDRESS: 'Jl. Alhuda No. 70, Kp. Rawasapi Rt 03/09, Kel. Jatimulya, Kec. Tambun Selatan. Bekasi ',
+    PHONE: '0897-3488-963',
   },
 
   /* ---------- METODE PEMBAYARAN ---------- */
