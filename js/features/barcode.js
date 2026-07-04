@@ -8,22 +8,30 @@
       diketik manual sebagai fallback kalau kamera tidak
       bisa diakses.
 
-   MODE PEMINDAIAN — dipakai untuk membedakan apa yang
-   terjadi setelah barcode berhasil dibaca:
+   PENTING — ARSITEKTUR OVERLAY TERPISAH:
+   Scanner ini SENGAJA dibuat sebagai lapisan tersendiri
+   (#barcodeScannerRoot), BUKAN lewat ModalManager/#modalRoot.
+   Alasannya: ModalManager cuma bisa nampilin 1 modal dalam
+   satu waktu — kalau scanner dibuka lewat ModalManager juga,
+   modal lain yang sedang terbuka (mis. form Tambah Produk)
+   akan hilang/rusak begitu scanner dibuka di atasnya. Dengan
+   jadi lapisan terpisah, scanner bisa numpuk di atas modal
+   apapun yang sedang terbuka tanpa merusaknya.
+
+   MODE PEMINDAIAN:
    - 'kasir'         : produk langsung masuk ke keranjang (default)
    - 'stok-masuk'    : buka modal "Catat Barang Masuk" untuk produk itu
    - 'stok-keluar'   : buka modal "Catat Barang Keluar" untuk produk itu
-   - 'input-barcode' : cuma isi field barcode di form produk, tidak
-                       mencari produk (dipakai pas nambah produk baru,
-                       karena produknya belum ada di database)
+   - 'input-barcode' : cuma isi field barcode di form produk (dipakai
+                       saat menambah produk baru), form di belakangnya
+                       TETAP UTUH karena scanner adalah lapisan terpisah
 
    ANTI SCAN DOBEL: barcode yang sama, kalau terus "terlihat" kamera,
    bisa kebaca berkali-kali per detik. Ada cooldown 2 detik supaya
-   kode yang sama tidak diproses berulang selama waktu itu.
+   kode yang sama tidak diproses berulang selama itu.
 
    BATAL SCAN TERAKHIR: khusus mode 'kasir', ada tombol untuk
-   membatalkan item yang baru saja masuk keranjang lewat scan —
-   berguna kalau pembeli berubah pikiran nggak jadi ambil barang itu.
+   membatalkan item yang baru saja masuk keranjang lewat scan.
    ===================================================== */
 
 const BarcodeModule = {
@@ -32,6 +40,7 @@ const BarcodeModule = {
   _html5Qrcode: null,
   _mode: 'kasir',
   _onScan: null,
+  _isOpen: false,
 
   // Anti scan dobel
   _lastCode: null,
@@ -42,7 +51,7 @@ const BarcodeModule = {
   _lastScannedProductId: null,
 
   /* ===================================================
-     MODAL SCANNER
+     OVERLAY SCANNER (mandiri, bukan lewat ModalManager)
      =================================================== */
 
   /**
@@ -52,11 +61,16 @@ const BarcodeModule = {
    */
   openScannerModal(options = {}) {
     if (!CONFIG.FEATURES.BARCODE_SCANNER) return;
+
+    const root = document.getElementById('barcodeScannerRoot');
+    if (!root) return;
+
     this._mode = options.mode || 'kasir';
     this._onScan = options.onScan || null;
     this._lastCode = null;
     this._lastScanAt = 0;
     this._lastScannedProductId = null;
+    this._isOpen = true;
 
     const titleByMode = {
       'kasir': 'Pindai Barcode Produk',
@@ -67,37 +81,45 @@ const BarcodeModule = {
 
     const showUndoBtn = this._mode === 'kasir';
 
-    ModalManager.open('barcode', {
-      title: titleByMode[this._mode] || 'Pindai Barcode',
-      size: 'sm',
-      bodyHtml: `
-        <div style="margin-bottom: var(--space-4);">
-          <div id="barcodeReader" style="width:100%; min-height: 220px; border-radius: var(--radius-md); overflow:hidden; background:#0f172a; display:flex; align-items:center; justify-content:center;"></div>
-          <button class="btn btn-secondary btn-block" id="startCameraBtn" style="margin-top: var(--space-3);">
-            <i class="fa-solid fa-camera"></i> Aktifkan Kamera
-          </button>
+    root.innerHTML = `
+      <div class="modal-overlay" id="barcodeOverlay" style="position:fixed; inset:0; z-index:1200; background:rgba(15,23,42,0.55); backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; padding: var(--space-5);">
+        <div class="modal modal-sm" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <h3>${titleByMode[this._mode] || 'Pindai Barcode'}</h3>
+            <button class="modal-close-btn" id="closeBarcodeOverlayBtn" aria-label="Tutup">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div style="margin-bottom: var(--space-4);">
+              <div id="barcodeReader" style="width:100%; min-height: 220px; border-radius: var(--radius-md); overflow:hidden; background:#0f172a; display:flex; align-items:center; justify-content:center;"></div>
+              <button class="btn btn-secondary btn-block" id="startCameraBtn" style="margin-top: var(--space-3);">
+                <i class="fa-solid fa-camera"></i> Aktifkan Kamera
+              </button>
+            </div>
+            <div style="text-align:center; padding: var(--space-2) 0;">
+              <p style="margin-bottom: var(--space-3); color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+                Atau pakai scanner fisik / ketik manual, lalu tekan Enter:
+              </p>
+              <input type="text" id="barcodeScanInput" placeholder="Hasil pemindaian akan muncul di sini..." autocomplete="off">
+            </div>
+            <div id="barcodeResult"></div>
+            ${showUndoBtn ? `
+              <button class="btn btn-danger btn-block" id="undoLastScanBtn" style="margin-top: var(--space-3);" disabled>
+                <i class="fa-solid fa-rotate-left"></i> Batal Scan Terakhir
+              </button>` : ''}
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary btn-block" id="closeBarcodeOverlayBtn2">Tutup</button>
+          </div>
         </div>
-        <div style="text-align:center; padding: var(--space-2) 0;">
-          <p style="margin-bottom: var(--space-3); color: var(--color-text-secondary); font-size: var(--font-size-sm);">
-            Atau pakai scanner fisik / ketik manual:
-          </p>
-          <input type="text" id="barcodeScanInput" placeholder="Hasil pemindaian akan muncul di sini..." autocomplete="off">
-        </div>
-        <div id="barcodeResult"></div>
-        ${showUndoBtn ? `
-          <button class="btn btn-danger btn-block" id="undoLastScanBtn" style="margin-top: var(--space-3);" disabled>
-            <i class="fa-solid fa-rotate-left"></i> Batal Scan Terakhir
-          </button>` : ''}
-      `,
-      footerHtml: `<button class="btn btn-secondary btn-block" data-modal-close>Tutup</button>`,
-    });
+      </div>`;
 
-    // Matikan kamera setiap kali modal ditutup (tombol close, overlay, atau ESC)
-    document.querySelectorAll('#modalRoot [data-modal-close]').forEach(btn => {
-      btn.addEventListener('click', () => this._stopCamera());
-    });
-    document.getElementById('modalOverlay')?.addEventListener('click', (e) => {
-      if (e.target.id === 'modalOverlay') this._stopCamera();
+    const close = () => this.closeScannerModal();
+    document.getElementById('closeBarcodeOverlayBtn')?.addEventListener('click', close);
+    document.getElementById('closeBarcodeOverlayBtn2')?.addEventListener('click', close);
+    document.getElementById('barcodeOverlay')?.addEventListener('click', (e) => {
+      if (e.target.id === 'barcodeOverlay') close();
     });
 
     document.getElementById('startCameraBtn')?.addEventListener('click', () => this._startCamera());
@@ -113,13 +135,19 @@ const BarcodeModule = {
       }
     });
 
-    // Auto-focus kembali ke input manual jika pengguna mengklik di dalam modal
-    // (tapi bukan tombol kamera/batal, supaya tidak mengganggu tombol itu)
-    document.getElementById('modalRoot')?.addEventListener('click', (e) => {
+    root.addEventListener('click', (e) => {
       if (e.target.closest('#startCameraBtn') || e.target.closest('#undoLastScanBtn')) return;
       const stillOpen = document.getElementById('barcodeScanInput');
       if (stillOpen) stillOpen.focus();
     });
+  },
+
+  /** Menutup overlay scanner dan mematikan kamera (kalau aktif) */
+  closeScannerModal() {
+    this._stopCamera();
+    const root = document.getElementById('barcodeScannerRoot');
+    if (root) root.innerHTML = '';
+    this._isOpen = false;
   },
 
   /* ===================================================
@@ -131,6 +159,12 @@ const BarcodeModule = {
       Utils.showToast('Fitur kamera gagal dimuat. Cek koneksi internet lalu coba lagi.', 'error');
       return;
     }
+
+    // "Buka kunci" audio di sini — tombol ini pasti diklik langsung oleh
+    // pengguna, jadi ini kesempatan aman untuk resume AudioContext supaya
+    // bunyi "beep" saat scan berhasil nanti (dipicu dari callback kamera
+    // yang berjalan otomatis, bukan dari klik langsung) tetap terdengar.
+    Utils.unlockAudio();
 
     const btn = document.getElementById('startCameraBtn');
     if (btn) {
@@ -177,7 +211,7 @@ const BarcodeModule = {
   _processScan(code) {
     if (!code) return;
 
-    // FIX ANTI SCAN DOBEL: kalau kode yang sama baru saja diproses dalam
+    // ANTI SCAN DOBEL: kalau kode yang sama baru saja diproses dalam
     // jendela waktu cooldown, abaikan — mencegah 1 barcode yang terus
     // "terlihat" kamera bikin produk masuk keranjang berkali-kali.
     const now = Date.now();
@@ -187,13 +221,13 @@ const BarcodeModule = {
     this._lastCode = code;
     this._lastScanAt = now;
 
-    // Mode input-barcode: cuma isi field, tidak perlu cari produk di database
-    // (dipakai saat menambah produk baru yang barcode-nya belum terdaftar).
+    // Mode input-barcode: cuma isi field, tidak perlu cari produk di
+    // database (dipakai saat menambah produk baru). Form di belakangnya
+    // TIDAK ikut hilang karena scanner ini lapisan terpisah.
     if (this._mode === 'input-barcode') {
       Utils.playSound('success');
       this._onScan?.(code);
-      this._stopCamera();
-      ModalManager.close();
+      this.closeScannerModal();
       Utils.showToast(`Barcode "${code}" berhasil dipindai`, 'success');
       return;
     }
@@ -215,23 +249,21 @@ const BarcodeModule = {
 
     Utils.playSound('success');
 
-    // Mode stok: tutup scanner, langsung buka modal stok yang sesuai
-    // dengan produk yang berhasil dipindai.
+    // Mode stok: tutup scanner, langsung buka modal stok yang sesuai.
     if (this._mode === 'stok-masuk') {
-      this._stopCamera();
-      ModalManager.close();
+      this.closeScannerModal();
       StockModule.openStockInModal(product.id);
       return;
     }
     if (this._mode === 'stok-keluar') {
-      this._stopCamera();
-      ModalManager.close();
+      this.closeScannerModal();
       StockModule.openStockOutModal(product.id);
       return;
     }
 
     // Mode default (kasir): langsung tambah ke keranjang, scanner tetap
-    // terbuka supaya kasir bisa lanjut scan produk berikutnya.
+    // terbuka supaya kasir bisa lanjut scan produk berikutnya tanpa
+    // harus keluar dari halaman scan.
     CartModule.addItem(product.id);
     this._lastScannedProductId = product.id;
 
@@ -265,16 +297,11 @@ const BarcodeModule = {
     if (resultEl) resultEl.innerHTML = '';
 
     this._lastScannedProductId = null;
-    // Reset cooldown supaya barcode yang sama bisa langsung dipindai lagi
-    // kalau ternyata pembeli mau scan ulang produk itu.
     this._lastCode = null;
   },
 
   /* ===================================================
-     GLOBAL LISTENER (mode keyboard wedge tanpa modal)
-     Memungkinkan kasir memindai barcode langsung dari
-     halaman Kasir tanpa perlu membuka modal, selama tidak
-     sedang mengetik di field input lain.
+     GLOBAL LISTENER (mode keyboard wedge tanpa membuka overlay)
      =================================================== */
 
   initGlobalListener() {
@@ -283,9 +310,8 @@ const BarcodeModule = {
       const isTypingInField = activeTag === 'INPUT' || activeTag === 'TEXTAREA';
       const isOnKasirView = STATE.currentView === 'kasir';
 
-      if (isTypingInField || !isOnKasirView) return;
+      if (isTypingInField || !isOnKasirView || this._isOpen) return;
 
-      // Scanner barcode biasanya mengetik sangat cepat lalu diakhiri Enter
       if (e.key === 'Enter') {
         if (this._scanBuffer.length >= 4) {
           this._mode = 'kasir';
@@ -298,7 +324,6 @@ const BarcodeModule = {
       if (e.key.length === 1) {
         this._scanBuffer += e.key;
         clearTimeout(this._scanTimeout);
-        // Reset buffer jika jeda antar-ketikan terlalu lama (berarti bukan scanner)
         this._scanTimeout = setTimeout(() => { this._scanBuffer = ''; }, 100);
       }
     });
