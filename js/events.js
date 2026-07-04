@@ -248,6 +248,10 @@ const EventsModule = {
     document.getElementById('stockInBtn')?.addEventListener('click', () => {
       StockModule.openStockInModal();
     });
+
+    document.getElementById('stockOutBtn')?.addEventListener('click', () => {
+      StockModule.openStockOutModal();
+    });
   },
 
   /* ===================================================
@@ -310,6 +314,12 @@ const EventsModule = {
       const editBtn = e.target.closest('[data-edit-product]');
       if (editBtn) AppMain.openProductFormModal(editBtn.dataset.editProduct);
 
+      // FIX: sebelumnya belum ada listener sama sekali untuk tombol
+      // edit pelanggan, jadi tombol pensil di menu Pelanggan tidak
+      // pernah merespons klik.
+      const editCustomerBtn = e.target.closest('[data-edit-customer]');
+      if (editCustomerBtn) AppMain.openCustomerFormModal(editCustomerBtn.dataset.editCustomer);
+
       // Hapus produk
       const deleteBtn = e.target.closest('[data-delete-product]');
       if (deleteBtn) {
@@ -321,6 +331,9 @@ const EventsModule = {
       // Barang masuk dari tabel stok
       const stockInBtn = e.target.closest('[data-stock-in]');
       if (stockInBtn) StockModule.openStockInModal(stockInBtn.dataset.stockIn);
+
+      const stockOutBtn = e.target.closest('[data-stock-out]');
+      if (stockOutBtn) StockModule.openStockOutModal(stockOutBtn.dataset.stockOut);
 
       // Keranjang: increment/decrement/remove
       const incrementBtn = e.target.closest('[data-cart-increment]');
