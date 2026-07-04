@@ -184,6 +184,16 @@ const Utils = {
         this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
       const ctx = this._audioCtx;
+
+      // FIX: browser modern (Chrome/Safari) otomatis men-suspend AudioContext
+      // kalau dibuat/dipakai di luar user-gesture langsung (mis. dari callback
+      // kamera scanner yang berjalan otomatis, bukan dari klik langsung).
+      // Tanpa resume() ini, oscillator tetap "start" tapi tidak ada suara
+      // yang benar-benar keluar.
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
@@ -207,6 +217,25 @@ const Utils = {
     } catch (err) {
       // Diam-diam gagal jika browser tidak mendukung Web Audio API
       console.warn('Gagal memutar suara:', err);
+    }
+  },
+
+  /**
+   * Panggil dari dalam event handler klik/tap langsung untuk "membuka
+   * kunci" AudioContext, supaya playSound() yang dipanggil belakangan
+   * dari callback asinkron (mis. hasil scan kamera) tetap bisa bunyi.
+   */
+  unlockAudio() {
+    if (!CONFIG.FEATURES.SOUND_EFFECTS) return;
+    try {
+      if (!this._audioCtx) {
+        this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (this._audioCtx.state === 'suspended') {
+        this._audioCtx.resume();
+      }
+    } catch {
+      // aman diabaikan
     }
   },
 
