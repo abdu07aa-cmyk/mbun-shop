@@ -205,10 +205,72 @@ const PaymentModule = {
       bodyHtml: this._receiptHtml(transaction),
       footerHtml: `
         <button class="btn btn-secondary" data-modal-close>Tutup</button>
+        <button class="btn btn-secondary" id="shareReceiptBtn"><i class="fa-solid fa-share-nodes"></i> Bagikan</button>
         <button class="btn btn-primary" id="printReceiptBtn"><i class="fa-solid fa-print"></i> Cetak</button>`,
     });
 
     document.getElementById('printReceiptBtn')?.addEventListener('click', () => window.print());
+    document.getElementById('shareReceiptBtn')?.addEventListener('click', () => this._shareReceipt(transaction));
+  },
+
+  /**
+   * Membagikan struk sebagai teks lewat fitur share bawaan HP (WhatsApp,
+   * Telegram, dll). Ini alternatif buat yang belum punya printer struk.
+   * Kalau browser/device tidak mendukung Web Share API (kebanyakan
+   * terjadi di desktop), fallback ke salin teks ke clipboard.
+   */
+  async _shareReceipt(t) {
+    const text = this._receiptText(t);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Struk ${CONFIG.STORE.NAME}`,
+          text,
+        });
+      } catch (err) {
+        // Pengguna membatalkan share, atau share gagal — tidak perlu toast error
+        if (err.name !== 'AbortError') {
+          console.warn('[Payment] Gagal membagikan struk:', err.message);
+        }
+      }
+      return;
+    }
+
+    // Fallback: browser tidak mendukung Web Share API (umumnya desktop)
+    try {
+      await navigator.clipboard.writeText(text);
+      Utils.showToast('Struk disalin ke clipboard — tempel (paste) ke WhatsApp/chat', 'success', 5000);
+    } catch {
+      Utils.showToast('Fitur bagikan tidak didukung di browser ini', 'error');
+    }
+  },
+
+  /** Versi teks polos dari struk, dipakai untuk fitur Bagikan */
+  _receiptText(t) {
+    const itemLines = t.items.map(item => {
+      const product = STATE.products.find(p => String(p.id) === String(item.product_id));
+      const name = product?.name || 'Produk';
+      return `${name} x${item.quantity} - ${Utils.formatCurrency(item.price * item.quantity)}`;
+    }).join('\n');
+
+    const paymentLines = t.payment_method === 'cash'
+      ? `Tunai: ${Utils.formatCurrency(PaymentModule.cashReceived)}\nKembalian: ${Utils.formatCurrency(t.change || 0)}`
+      : `Metode: ${t.payment_method.toUpperCase()}`;
+
+    return [
+      `*${CONFIG.STORE.NAME}*`,
+      CONFIG.STORE.ADDRESS,
+      Utils.formatDateTime(t.created_at || new Date()),
+      '------------------------------',
+      itemLines,
+      '------------------------------',
+      `Diskon: -${Utils.formatCurrency(t.discount || 0)}`,
+      `*TOTAL: ${Utils.formatCurrency(t.total_amount)}*`,
+      paymentLines,
+      '',
+      'Terima kasih sudah berbelanja! 🙏',
+    ].join('\n');
   },
 
   _receiptHtml(t) {
