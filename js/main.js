@@ -422,7 +422,12 @@ const AppMain = {
           </label>
           <label class="form-field" style="grid-column: 1 / -1;">
             <span>Barcode (opsional)</span>
-            <input type="text" id="pfBarcode" value="${Utils.escapeHtml(product?.barcode || '')}" placeholder="Pindai atau ketik manual">
+            <div style="display:flex; gap: var(--space-2);">
+              <input type="text" id="pfBarcode" value="${Utils.escapeHtml(product?.barcode || '')}" placeholder="Pindai atau ketik manual" style="flex:1;">
+              <button type="button" class="icon-btn" id="scanProductBarcodeBtn" aria-label="Scan barcode" title="Scan barcode">
+                <i class="fa-solid fa-barcode"></i>
+              </button>
+            </div>
           </label>
         </div>
         <input type="hidden" id="pfEmoji" value="${currentEmoji}">
@@ -436,6 +441,17 @@ const AppMain = {
 
     // Render emoji picker
     EmojiPicker.render('all', currentEmoji);
+
+    // Scan barcode untuk isi field barcode form produk
+    document.getElementById('scanProductBarcodeBtn')?.addEventListener('click', () => {
+      BarcodeModule.openScannerModal({
+        mode: 'input-barcode',
+        onScan: (code) => {
+          const field = document.getElementById('pfBarcode');
+          if (field) field.value = code;
+        },
+      });
+    });
 
     // Filter kategori emoji
     document.getElementById('emojiCatFilter')?.addEventListener('click', (e) => {
@@ -478,7 +494,9 @@ const AppMain = {
 
   openCustomerFormModal(customerId = null) {
     const isEdit = customerId !== null;
-    const customer = isEdit ? STATE.customers.find(c => c.id === customerId) : null;
+    // FIX: sama seperti bug produk sebelumnya — customerId dari dataset
+    // HTML selalu string, sedangkan c.id di database bisa number/UUID.
+    const customer = isEdit ? STATE.customers.find(c => String(c.id) === String(customerId)) : null;
 
     ModalManager.open('customerForm', {
       title: isEdit ? 'Edit Pelanggan' : 'Tambah Pelanggan Baru',
@@ -512,7 +530,7 @@ const AppMain = {
 
       if (isEdit) {
         await API.customers.update(customerId, { name, phone });
-        STATE.setCustomers(STATE.customers.map(c => c.id === customerId ? { ...c, name, phone } : c));
+        STATE.setCustomers(STATE.customers.map(c => String(c.id) === String(customerId) ? { ...c, name, phone } : c));
         Utils.showToast('Data pelanggan diperbarui', 'success');
       } else {
         const [created] = await API.customers.create({ name, phone, points: 0 });
