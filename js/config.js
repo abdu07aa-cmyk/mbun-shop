@@ -27,6 +27,7 @@ const CONFIG = {
     TRANSACTION_ITEMS: 'transaction_items',
     SHIFTS: 'shifts',
     CUSTOMERS: 'customers',
+    STOCK_MOVEMENTS: 'stock_movements',
   },
 
   /* ---------- INFORMASI TOKO ---------- */
