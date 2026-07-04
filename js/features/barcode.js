@@ -10,9 +10,20 @@
 
    MODE PEMINDAIAN — dipakai untuk membedakan apa yang
    terjadi setelah barcode berhasil dibaca:
-   - 'kasir'       : produk langsung masuk ke keranjang (default)
-   - 'stok-masuk'  : buka modal "Catat Barang Masuk" untuk produk itu
-   - 'stok-keluar' : buka modal "Catat Barang Keluar" untuk produk itu
+   - 'kasir'         : produk langsung masuk ke keranjang (default)
+   - 'stok-masuk'    : buka modal "Catat Barang Masuk" untuk produk itu
+   - 'stok-keluar'   : buka modal "Catat Barang Keluar" untuk produk itu
+   - 'input-barcode' : cuma isi field barcode di form produk, tidak
+                       mencari produk (dipakai pas nambah produk baru,
+                       karena produknya belum ada di database)
+
+   ANTI SCAN DOBEL: barcode yang sama, kalau terus "terlihat" kamera,
+   bisa kebaca berkali-kali per detik. Ada cooldown 2 detik supaya
+   kode yang sama tidak diproses berulang selama waktu itu.
+
+   BATAL SCAN TERAKHIR: khusus mode 'kasir', ada tombol untuk
+   membatalkan item yang baru saja masuk keranjang lewat scan —
+   berguna kalau pembeli berubah pikiran nggak jadi ambil barang itu.
    ===================================================== */
 
 const BarcodeModule = {
@@ -20,6 +31,15 @@ const BarcodeModule = {
   _scanTimeout: null,
   _html5Qrcode: null,
   _mode: 'kasir',
+  _onScan: null,
+
+  // Anti scan dobel
+  _lastCode: null,
+  _lastScanAt: 0,
+  _SCAN_COOLDOWN_MS: 2000,
+
+  // Untuk fitur "Batal Scan Terakhir" (mode kasir)
+  _lastScannedProductId: null,
 
   /* ===================================================
      MODAL SCANNER
@@ -27,17 +47,25 @@ const BarcodeModule = {
 
   /**
    * @param {object} options
-   * @param {'kasir'|'stok-masuk'|'stok-keluar'} options.mode
+   * @param {'kasir'|'stok-masuk'|'stok-keluar'|'input-barcode'} options.mode
+   * @param {(code:string)=>void} [options.onScan] - dipakai khusus mode 'input-barcode'
    */
   openScannerModal(options = {}) {
     if (!CONFIG.FEATURES.BARCODE_SCANNER) return;
     this._mode = options.mode || 'kasir';
+    this._onScan = options.onScan || null;
+    this._lastCode = null;
+    this._lastScanAt = 0;
+    this._lastScannedProductId = null;
 
     const titleByMode = {
       'kasir': 'Pindai Barcode Produk',
       'stok-masuk': 'Pindai Barcode — Barang Masuk',
       'stok-keluar': 'Pindai Barcode — Barang Keluar',
+      'input-barcode': 'Pindai Barcode Produk',
     };
+
+    const showUndoBtn = this._mode === 'kasir';
 
     ModalManager.open('barcode', {
       title: titleByMode[this._mode] || 'Pindai Barcode',
@@ -56,6 +84,10 @@ const BarcodeModule = {
           <input type="text" id="barcodeScanInput" placeholder="Hasil pemindaian akan muncul di sini..." autocomplete="off">
         </div>
         <div id="barcodeResult"></div>
+        ${showUndoBtn ? `
+          <button class="btn btn-danger btn-block" id="undoLastScanBtn" style="margin-top: var(--space-3);" disabled>
+            <i class="fa-solid fa-rotate-left"></i> Batal Scan Terakhir
+          </button>` : ''}
       `,
       footerHtml: `<button class="btn btn-secondary btn-block" data-modal-close>Tutup</button>`,
     });
@@ -69,6 +101,7 @@ const BarcodeModule = {
     });
 
     document.getElementById('startCameraBtn')?.addEventListener('click', () => this._startCamera());
+    document.getElementById('undoLastScanBtn')?.addEventListener('click', () => this._undoLastScan());
 
     const input = document.getElementById('barcodeScanInput');
     input?.focus();
@@ -81,9 +114,9 @@ const BarcodeModule = {
     });
 
     // Auto-focus kembali ke input manual jika pengguna mengklik di dalam modal
-    // (tapi bukan tombol kamera, supaya tidak mengganggu proses buka kamera)
+    // (tapi bukan tombol kamera/batal, supaya tidak mengganggu tombol itu)
     document.getElementById('modalRoot')?.addEventListener('click', (e) => {
-      if (e.target.closest('#startCameraBtn')) return;
+      if (e.target.closest('#startCameraBtn') || e.target.closest('#undoLastScanBtn')) return;
       const stillOpen = document.getElementById('barcodeScanInput');
       if (stillOpen) stillOpen.focus();
     });
@@ -144,6 +177,27 @@ const BarcodeModule = {
   _processScan(code) {
     if (!code) return;
 
+    // FIX ANTI SCAN DOBEL: kalau kode yang sama baru saja diproses dalam
+    // jendela waktu cooldown, abaikan — mencegah 1 barcode yang terus
+    // "terlihat" kamera bikin produk masuk keranjang berkali-kali.
+    const now = Date.now();
+    if (code === this._lastCode && (now - this._lastScanAt) < this._SCAN_COOLDOWN_MS) {
+      return;
+    }
+    this._lastCode = code;
+    this._lastScanAt = now;
+
+    // Mode input-barcode: cuma isi field, tidak perlu cari produk di database
+    // (dipakai saat menambah produk baru yang barcode-nya belum terdaftar).
+    if (this._mode === 'input-barcode') {
+      Utils.playSound('success');
+      this._onScan?.(code);
+      this._stopCamera();
+      ModalManager.close();
+      Utils.showToast(`Barcode "${code}" berhasil dipindai`, 'success');
+      return;
+    }
+
     const product = ProductsModule.findByBarcode(code);
     const resultEl = document.getElementById('barcodeResult');
 
@@ -179,12 +233,41 @@ const BarcodeModule = {
     // Mode default (kasir): langsung tambah ke keranjang, scanner tetap
     // terbuka supaya kasir bisa lanjut scan produk berikutnya.
     CartModule.addItem(product.id);
+    this._lastScannedProductId = product.id;
+
+    const undoBtn = document.getElementById('undoLastScanBtn');
+    if (undoBtn) undoBtn.disabled = false;
+
     if (resultEl) {
       resultEl.innerHTML = `
         <div class="badge badge-success" style="display:flex; gap:8px; align-items:center; padding: var(--space-3); font-size: var(--font-size-sm);">
           <i class="fa-solid fa-circle-check"></i> ${Utils.escapeHtml(product.name)} ditambahkan ke keranjang
         </div>`;
     }
+  },
+
+  /**
+   * Membatalkan 1 unit produk terakhir yang masuk keranjang lewat scan.
+   * Dipakai kalau pembeli berubah pikiran tidak jadi ambil barang itu.
+   */
+  _undoLastScan() {
+    if (!this._lastScannedProductId) return;
+
+    const product = STATE.products.find(p => String(p.id) === String(this._lastScannedProductId));
+    CartModule.decrementItem(this._lastScannedProductId);
+    Utils.playSound('click');
+    Utils.showToast(`Dibatalkan: ${product?.name || 'produk'}`, 'warning');
+
+    const undoBtn = document.getElementById('undoLastScanBtn');
+    if (undoBtn) undoBtn.disabled = true;
+
+    const resultEl = document.getElementById('barcodeResult');
+    if (resultEl) resultEl.innerHTML = '';
+
+    this._lastScannedProductId = null;
+    // Reset cooldown supaya barcode yang sama bisa langsung dipindai lagi
+    // kalau ternyata pembeli mau scan ulang produk itu.
+    this._lastCode = null;
   },
 
   /* ===================================================
