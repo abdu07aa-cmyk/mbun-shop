@@ -63,7 +63,11 @@ const BarcodeModule = {
     if (!CONFIG.FEATURES.BARCODE_SCANNER) return;
 
     const root = document.getElementById('barcodeScannerRoot');
-    if (!root) return;
+    if (!root) {
+      console.error('[Barcode] Elemen #barcodeScannerRoot tidak ditemukan di index.html');
+      Utils.showToast('Fitur scan belum siap — pastikan index.html sudah versi terbaru', 'error');
+      return;
+    }
 
     this._mode = options.mode || 'kasir';
     this._onScan = options.onScan || null;
