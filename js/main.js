@@ -262,7 +262,11 @@ const AppMain = {
     Utils.qsa('[data-return-transaction]').forEach(btn => {
       btn.addEventListener('click', () => {
         const trx = STATE.transactions.find(t => String(t.id) === btn.dataset.returnTransaction);
-        if (trx) ReturnsModule.openReturnDetailModal(trx);
+        // FIX: sebelumnya memanggil ReturnsModule.openReturnDetailModal
+        // yang TIDAK PERNAH ADA di returns.js (nama fungsi salah ketik),
+        // sehingga tombol ini selalu gagal diam-diam. Nama yang benar
+        // adalah openReturnItemsModal.
+        if (trx) ReturnsModule.openReturnItemsModal(trx);
       });
     });
   },
