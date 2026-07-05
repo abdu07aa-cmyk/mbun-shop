@@ -85,7 +85,7 @@ const ReturnsModule = {
             <thead><tr><th>Produk</th><th>Dibeli</th><th>Jumlah Retur</th></tr></thead>
             <tbody>
               ${items.map(item => {
-                const product = STATE.products.find(p => p.id === item.product_id);
+                const product = STATE.products.find(p => String(p.id) === String(item.product_id));
                 return `
                   <tr>
                     <td>${Utils.escapeHtml(product?.name || 'Produk')}</td>
@@ -156,7 +156,7 @@ const ReturnsModule = {
       // 1. Kembalikan stok untuk setiap item yang diretur
       for (const [productId, qty] of Object.entries(this._returnQty)) {
         if (qty <= 0) continue;
-        const product = STATE.products.find(p => p.id === productId);
+        const product = STATE.products.find(p => String(p.id) === String(productId));
         if (!product) continue;
         await ProductsModule.update(productId, { stock: product.stock + qty });
       }
@@ -176,7 +176,7 @@ const ReturnsModule = {
       // 3. Tandai transaksi asli sebagai sudah diretur
       await API.transactions.update(this._targetTransaction.id, { payment_status: 'refunded' });
       STATE.transactions = STATE.transactions.map(t =>
-        t.id === this._targetTransaction.id ? { ...t, payment_status: 'refunded' } : t
+        String(t.id) === String(this._targetTransaction.id) ? { ...t, payment_status: 'refunded' } : t
       );
       STATE.notify('transactions');
 
