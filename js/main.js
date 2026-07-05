@@ -277,9 +277,13 @@ const AppMain = {
           ? '<span class="badge badge-danger">Retur</span>'
           : '<span class="badge badge-success">Lunas</span>'}
         </td>
-        <td>
-          <button class="icon-btn" data-return-transaction="${t.id}" title="Retur">
-            <i class="fa-solid fa-rotate-left"></i>
+        <td style="display:flex; gap: var(--space-2);">
+          ${(t.total_amount >= 0 && t.payment_status !== 'refunded') ? `
+            <button class="icon-btn" data-return-transaction="${t.id}" title="Retur">
+              <i class="fa-solid fa-rotate-left"></i>
+            </button>` : ''}
+          <button class="icon-btn" data-delete-transaction="${t.id}" title="Hapus (mis. transaksi uji coba)">
+            <i class="fa-solid fa-trash"></i>
           </button>
         </td>
       </tr>`).join('');
@@ -294,6 +298,36 @@ const AppMain = {
         if (trx) ReturnsModule.openReturnItemsModal(trx);
       });
     });
+
+    Utils.qsa('[data-delete-transaction]').forEach(btn => {
+      btn.addEventListener('click', () => this._deleteTransaction(btn.dataset.deleteTransaction));
+    });
+  },
+
+  /**
+   * Menghapus transaksi beserta transaction_items terkait. Berguna untuk
+   * membersihkan transaksi uji coba yang tidak mencerminkan data asli.
+   * @param {string} id
+   */
+  async _deleteTransaction(id) {
+    const trx = STATE.transactions.find(t => String(t.id) === String(id));
+    if (!trx) return;
+
+    const confirmed = window.confirm(
+      `Hapus transaksi ${Utils.formatCurrency(trx.total_amount)} (${Utils.formatDateTime(trx.created_at)})?\n\nIni tidak bisa dibatalkan.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await API.transactionItems.deleteByTransaction(id);
+      await API.transactions.delete(id);
+
+      STATE.setTransactions(STATE.transactions.filter(t => String(t.id) !== String(id)));
+      Utils.showToast('Transaksi dihapus', 'success');
+    } catch (err) {
+      console.error('[AppMain] Gagal menghapus transaksi:', err);
+      Utils.showToast('Gagal menghapus transaksi, coba lagi', 'error');
+    }
   },
 
   /* ===================================================
