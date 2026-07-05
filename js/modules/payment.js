@@ -214,22 +214,89 @@ const PaymentModule = {
   },
 
   /**
-   * Membagikan struk sebagai teks lewat fitur share bawaan HP (WhatsApp,
-   * Telegram, dll). Ini alternatif buat yang belum punya printer struk.
-   * Kalau browser/device tidak mendukung Web Share API (kebanyakan
-   * terjadi di desktop), fallback ke salin teks ke clipboard.
+   * Membagikan struk sebagai GAMBAR (persis tampilan struk aslinya) lewat
+   * fitur share bawaan HP (WhatsApp, Telegram, dll). Alternatif buat yang
+   * belum punya printer struk.
+   *
+   * Urutan fallback:
+   * 1. Render elemen .receipt jadi gambar (html2canvas) -> share sebagai file gambar
+   * 2. Kalau share file tidak didukung -> download gambar ke HP + tampilkan
+   *    petunjuk cara kirim manual
+   * 3. Kalau html2canvas gagal dimuat -> fallback lama (share teks)
    */
   async _shareReceipt(t) {
+    const receiptEl = document.querySelector('#modalRoot .receipt');
+
+    if (typeof html2canvas === 'undefined' || !receiptEl) {
+      return this._shareReceiptAsText(t);
+    }
+
+    const shareBtn = document.getElementById('shareReceiptBtn');
+    if (shareBtn) {
+      shareBtn.disabled = true;
+      shareBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyiapkan gambar...';
+    }
+
+    try {
+      // devicePixelRatio biar hasil gambarnya tajam (nggak buram) pas dibuka di HP
+      const canvas = await html2canvas(receiptEl, {
+        scale: Math.max(2, window.devicePixelRatio || 1),
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        onclone: (clonedDoc) => {
+          // Paksa tema terang di hasil "foto" struk, supaya tulisannya
+          // tetap kelihatan jelas (hitam di atas putih) walau aplikasi
+          // aslinya lagi dalam mode gelap.
+          clonedDoc.body.setAttribute('data-theme', 'light');
+        },
+      });
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('Gagal membuat gambar struk');
+
+      const fileName = `struk-${String(t.id).slice(-8)}.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: `Struk ${CONFIG.STORE.NAME}`,
+          files: [file],
+        });
+      } else {
+        // HP/browser belum dukung share file -> download gambarnya,
+        // biar pengguna bisa lampirkan manual ke WhatsApp/chat.
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        Utils.showToast('Gambar struk tersimpan ke HP — lampirkan manual ke chat', 'success', 5000);
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.warn('[Payment] Gagal membagikan struk sebagai gambar:', err.message);
+        Utils.showToast('Gagal membuat gambar struk, mencoba bagikan sebagai teks...', 'warning');
+        await this._shareReceiptAsText(t);
+      }
+    } finally {
+      if (shareBtn) {
+        shareBtn.disabled = false;
+        shareBtn.innerHTML = '<i class="fa-solid fa-share-nodes"></i> Bagikan';
+      }
+    }
+  },
+
+  /** Fallback lama: bagikan sebagai teks polos (dipakai kalau gambar gagal dibuat) */
+  async _shareReceiptAsText(t) {
     const text = this._receiptText(t);
 
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: `Struk ${CONFIG.STORE.NAME}`,
-          text,
-        });
+        await navigator.share({ title: `Struk ${CONFIG.STORE.NAME}`, text });
       } catch (err) {
-        // Pengguna membatalkan share, atau share gagal — tidak perlu toast error
         if (err.name !== 'AbortError') {
           console.warn('[Payment] Gagal membagikan struk:', err.message);
         }
@@ -237,7 +304,6 @@ const PaymentModule = {
       return;
     }
 
-    // Fallback: browser tidak mendukung Web Share API (umumnya desktop)
     try {
       await navigator.clipboard.writeText(text);
       Utils.showToast('Struk disalin ke clipboard — tempel (paste) ke WhatsApp/chat', 'success', 5000);
