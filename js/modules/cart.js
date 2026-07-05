@@ -205,10 +205,77 @@ const CartModule = {
   },
 
   /* ===================================================
+     PILIH PELANGGAN
+     Menentukan STATE.activeCustomer yang nanti ikut kesimpan
+     di kolom "Pelanggan" pada tabel Transaksi/Histori.
+     =================================================== */
+
+  openCustomerPicker() {
+    ModalManager.open('customerPicker', {
+      title: 'Pilih Pelanggan',
+      size: 'sm',
+      bodyHtml: `
+        <div class="form-field" style="margin-bottom: var(--space-3);">
+          <input type="text" id="customerPickerSearch" placeholder="Cari nama pelanggan...">
+        </div>
+        <div id="customerPickerList" style="display:flex; flex-direction:column; gap: var(--space-2); max-height: 320px; overflow-y:auto;">
+          ${this._renderCustomerPickerList(STATE.customers)}
+        </div>
+      `,
+      footerHtml: `<button class="btn btn-secondary btn-block" data-modal-close>Tutup</button>`,
+    });
+
+    document.getElementById('customerPickerSearch')?.addEventListener('input', Utils.debounce((e) => {
+      const q = e.target.value.toLowerCase();
+      const filtered = STATE.customers.filter(c => c.name.toLowerCase().includes(q));
+      const listEl = document.getElementById('customerPickerList');
+      if (listEl) listEl.innerHTML = this._renderCustomerPickerList(filtered);
+    }, 200));
+  },
+
+  _renderCustomerPickerList(customers) {
+    const umumRow = `
+      <button class="btn btn-secondary btn-block" data-pick-customer="umum" style="justify-content:flex-start;">
+        <i class="fa-solid fa-user-slash"></i>&nbsp; Umum (tanpa pelanggan)
+      </button>`;
+
+    if (customers.length === 0) {
+      return umumRow + `<p style="text-align:center; color: var(--color-text-muted); font-size: var(--font-size-sm); padding: var(--space-4) 0;">Belum ada pelanggan terdaftar. Tambahkan dulu di menu Pelanggan.</p>`;
+    }
+
+    const rows = customers.map(c => `
+      <button class="btn btn-secondary btn-block" data-pick-customer="${c.id}" style="justify-content:flex-start;">
+        <i class="fa-solid fa-user"></i>&nbsp; ${Utils.escapeHtml(c.name)}${c.phone ? ' — ' + Utils.escapeHtml(c.phone) : ''}
+      </button>`).join('');
+
+    return umumRow + rows;
+  },
+
+  /** @param {string} customerId - 'umum' untuk mengosongkan pelanggan aktif */
+  setActiveCustomer(customerId) {
+    if (!customerId || customerId === 'umum') {
+      STATE.activeCustomer = null;
+    } else {
+      STATE.activeCustomer = STATE.customers.find(c => String(c.id) === String(customerId)) || null;
+    }
+    this._syncCustomerLabel();
+    ModalManager.close();
+    Utils.showToast(`Pelanggan diset ke: ${STATE.activeCustomer?.name || 'Umum'}`, 'success');
+  },
+
+  _syncCustomerLabel() {
+    const label = document.getElementById('activeCustomerName');
+    if (label) label.textContent = STATE.activeCustomer?.name || 'Umum';
+  },
+
+  /* ===================================================
      INISIALISASI
      =================================================== */
   init() {
-    STATE.subscribe('cart', () => this.renderCart());
+    STATE.subscribe('cart', () => {
+      this.renderCart();
+      this._syncCustomerLabel(); // ikut ke-reset ke "Umum" setelah transaksi selesai
+    });
     this.renderCart();
   },
 };
