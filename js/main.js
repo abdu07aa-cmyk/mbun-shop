@@ -96,7 +96,32 @@ const AppMain = {
 
   async _loadTransactions() {
     const transactions = await API.transactions.getAll();
-    STATE.setTransactions(transactions);
+
+    // FIX: sebelumnya transaksi dimuat TANPA detail item-nya sama sekali
+    // (cuma ada di memori sesaat setelah baru bayar, hilang lagi setelah
+    // refresh). Sekarang transaction_items ikut diambil dan digabungkan
+    // ke transaksi masing-masing berdasarkan transaction_id, supaya
+    // struk, kolom "Item" di tabel, dan fitur Retur selalu punya data
+    // lengkap walau transaksinya dari sesi sebelumnya.
+    let itemsByTrx = {};
+    try {
+      const allItems = await API.fetchAll(CONFIG.TABLES.TRANSACTION_ITEMS);
+      itemsByTrx = allItems.reduce((acc, item) => {
+        const key = String(item.transaction_id);
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(item);
+        return acc;
+      }, {});
+    } catch (err) {
+      console.warn('[AppMain] Gagal memuat transaction_items:', err.message);
+    }
+
+    const merged = transactions.map(t => ({
+      ...t,
+      items: t.items || itemsByTrx[String(t.id)] || [],
+    }));
+
+    STATE.setTransactions(merged);
   },
 
   async _loadCustomers() {
