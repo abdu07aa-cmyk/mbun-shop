@@ -565,6 +565,10 @@ const AppMain = {
       title: isEdit ? 'Edit Pelanggan' : 'Tambah Pelanggan Baru',
       size: 'sm',
       bodyHtml: `
+        ${(!isEdit && 'contacts' in navigator && 'ContactsManager' in window) ? `
+          <button type="button" class="btn btn-secondary btn-block" id="pickContactBtn" style="margin-bottom: var(--space-4);">
+            <i class="fa-solid fa-address-book"></i> Ambil dari Kontak HP
+          </button>` : ''}
         <div class="form-grid" style="grid-template-columns: 1fr;">
           <label class="form-field">
             <span>Nama Lengkap *</span>
@@ -580,6 +584,28 @@ const AppMain = {
         <button class="btn btn-primary" id="saveCustomerBtn">
           <i class="fa-solid fa-floppy-disk"></i> ${isEdit ? 'Simpan' : 'Tambah'}
         </button>`,
+    });
+
+    document.getElementById('pickContactBtn')?.addEventListener('click', async () => {
+      try {
+        const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+        if (!contacts || contacts.length === 0) return;
+
+        const contact = contacts[0];
+        const nameField = document.getElementById('cfName');
+        const phoneField = document.getElementById('cfPhone');
+
+        if (nameField && contact.name?.[0]) nameField.value = contact.name[0];
+        if (phoneField && contact.tel?.[0]) phoneField.value = contact.tel[0];
+
+        Utils.showToast('Kontak berhasil diambil', 'success');
+      } catch (err) {
+        // Pengguna membatalkan pemilihan kontak — tidak perlu toast error
+        if (err.name !== 'AbortError') {
+          console.warn('[Customer] Gagal mengambil kontak:', err.message);
+          Utils.showToast('Gagal mengambil kontak dari HP', 'error');
+        }
+      }
     });
 
     document.getElementById('saveCustomerBtn')?.addEventListener('click', async () => {
