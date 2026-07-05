@@ -84,6 +84,7 @@ const HoldCartModule = {
     STATE.heldCarts = STATE.heldCarts.filter(h => h.id !== holdId);
     this._saveToLocalStorage();
     this._renderHeldListIfOpen();
+    EventsModule._syncHeldCartsBadge?.();
   },
 
   /* ===================================================
@@ -165,5 +166,6 @@ const HoldCartModule = {
 
   init() {
     this.loadFromLocalStorage();
+    EventsModule._syncHeldCartsBadge?.();
   },
 };
