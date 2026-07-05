@@ -192,6 +192,11 @@ const EventsModule = {
       BarcodeModule.openScannerModal();
     });
 
+    // Pilih pelanggan untuk transaksi saat ini
+    document.getElementById('selectCustomerBtn')?.addEventListener('click', () => {
+      CartModule.openCustomerPicker();
+    });
+
     // Terapkan kode diskon
     document.getElementById('applyDiscountBtn')?.addEventListener('click', () => {
       const code = document.getElementById('discountCodeInput')?.value;
@@ -313,6 +318,10 @@ const EventsModule = {
       // Edit produk
       const editBtn = e.target.closest('[data-edit-product]');
       if (editBtn) AppMain.openProductFormModal(editBtn.dataset.editProduct);
+
+      // Pilih pelanggan dari daftar
+      const pickCustomerBtn = e.target.closest('[data-pick-customer]');
+      if (pickCustomerBtn) CartModule.setActiveCustomer(pickCustomerBtn.dataset.pickCustomer);
 
       // FIX: sebelumnya belum ada listener sama sekali untuk tombol
       // edit pelanggan, jadi tombol pensil di menu Pelanggan tidak
