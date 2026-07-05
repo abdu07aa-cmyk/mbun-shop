@@ -209,7 +209,18 @@ const EventsModule = {
     // Tahan keranjang
     document.getElementById('holdCartBtn')?.addEventListener('click', () => {
       HoldCartModule.holdCurrentCart();
+      this._syncHeldCartsBadge();
     });
+
+    // Lihat daftar keranjang yang ditahan
+    // FIX: sebelumnya fungsi HoldCartModule.openHeldCartsModal() sudah
+    // ada tapi TIDAK PERNAH dipanggil dari manapun (tidak ada tombolnya
+    // di HTML), jadi keranjang yang ditahan tidak bisa dilihat/dilanjutkan
+    // sama sekali dari UI.
+    document.getElementById('viewHeldCartsBtn')?.addEventListener('click', () => {
+      HoldCartModule.openHeldCartsModal();
+    });
+    this._syncHeldCartsBadge();
 
     // Kosongkan keranjang
     document.getElementById('clearCartBtn')?.addEventListener('click', () => {
@@ -220,6 +231,17 @@ const EventsModule = {
     document.getElementById('payBtn')?.addEventListener('click', () => {
       PaymentModule.openPaymentModal();
     });
+  },
+
+  /* ===================================================
+     BADGE KERANJANG DITAHAN
+     =================================================== */
+  _syncHeldCartsBadge() {
+    const badge = document.getElementById('heldCartsBadge');
+    if (!badge) return;
+    const count = STATE.heldCarts.length;
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'flex' : 'none';
   },
 
   /* ===================================================
