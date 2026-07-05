@@ -210,12 +210,15 @@ const API = {
     getAll: () => API.fetchAll(CONFIG.TABLES.TRANSACTIONS, { order: 'created_at.desc' }),
     create: (transaction) => API.insert(CONFIG.TABLES.TRANSACTIONS, transaction),
     update: (id, changes) => API.update(CONFIG.TABLES.TRANSACTIONS, { id: `eq.${id}` }, changes),
+    delete: (id) => API.remove(CONFIG.TABLES.TRANSACTIONS, { id: `eq.${id}` }),
   },
 
   transactionItems: {
     create: (items) => API.insert(CONFIG.TABLES.TRANSACTION_ITEMS, items),
     getByTransaction: (transactionId) =>
       API.fetchAll(CONFIG.TABLES.TRANSACTION_ITEMS, { transaction_id: `eq.${transactionId}` }),
+    deleteByTransaction: (transactionId) =>
+      API.remove(CONFIG.TABLES.TRANSACTION_ITEMS, { transaction_id: `eq.${transactionId}` }),
   },
 
   customers: {
