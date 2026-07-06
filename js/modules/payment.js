@@ -228,6 +228,8 @@ const PaymentModule = {
     const receiptEl = document.querySelector('#modalRoot .receipt');
 
     if (typeof html2canvas === 'undefined' || !receiptEl) {
+      console.warn('[Payment] Fallback ke share teks. html2canvas termuat:', typeof html2canvas !== 'undefined', '| elemen .receipt ketemu:', !!receiptEl);
+      Utils.showToast('Fitur gambar struk belum siap, bagikan sebagai teks...', 'warning');
       return this._shareReceiptAsText(t);
     }
 
