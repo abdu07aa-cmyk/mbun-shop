@@ -1,1 +1,121 @@
+/* =====================================================
+   WARUNGKITA PRO MAX — PRINT.CSS
+   Dipakai lewat <link ... media="print"> di index.html.
+   Fungsinya: saat window.print() dipanggil (tombol "Cetak
+   Struk" di payment.js), yang tercetak HANYA konten struk
+   (.receipt di dalam modal), bukan seluruh halaman aplikasi
+   (sidebar, topbar, tombol, dsb).
+   ===================================================== */
 
+@media print {
+
+  /* ---------- SEMBUNYIKAN SEMUANYA DULU ---------- */
+  body * {
+    visibility: hidden;
+  }
+
+  /* ---------- TAMPILKAN HANYA ISI STRUK ---------- */
+  .modal-body,
+  .modal-body * {
+    visibility: visible;
+  }
+
+  /* Header modal ("Struk Transaksi" + tombol X) dan footer modal
+     (tombol "Cetak" / "Tutup") tidak perlu ikut tercetak */
+  .modal-header,
+  .modal-footer,
+  .modal-close-btn {
+    display: none !important;
+  }
+
+  /* Elemen lain yang pasti tidak relevan saat print */
+  .sidebar,
+  .topbar,
+  .bottom-nav,
+  .cart-fab,
+  .cart-backdrop,
+  .sidebar-backdrop,
+  .toast-container,
+  .modal-overlay {
+    background: none !important;
+    box-shadow: none !important;
+  }
+
+  /* ---------- REPOSISI SUPAYA STRUK NEMPEL DI POJOK KIRI ATAS KERTAS ---------- */
+  .modal-overlay {
+    position: absolute;
+    inset: 0;
+    padding: 0;
+    display: block;
+    backdrop-filter: none !important;
+  }
+
+  .modal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .modal-body {
+    padding: 0;
+  }
+
+  /* ---------- STYLING STRUK UNTUK KERTAS THERMAL/A4 ---------- */
+  .receipt {
+    width: 100%;
+    max-width: 320px; /* mirip lebar kertas struk thermal 80mm */
+    margin: 0 auto;
+    background: #fff !important;
+    color: #000 !important;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 8px 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .receipt-header {
+    text-align: center;
+    border-bottom: 1px dashed #000;
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+  }
+
+  .receipt-row,
+  .receipt-total-row {
+    display: flex;
+    justify-content: space-between;
+    color: #000 !important;
+  }
+
+  .receipt-divider {
+    border-top: 1px dashed #000;
+    margin: 6px 0;
+  }
+
+  .receipt-total-row {
+    font-weight: bold;
+    border-top: 1px dashed #000;
+    padding-top: 4px;
+    margin-top: 4px;
+  }
+
+  /* ---------- SETTING HALAMAN CETAK ---------- */
+  @page {
+    size: auto;
+    margin: 8mm;
+  }
+
+  html, body {
+    background: #fff !important;
+    margin: 0;
+    padding: 0;
+  }
+}
