@@ -32,9 +32,9 @@ const CONFIG = {
 
   /* ---------- INFORMASI TOKO ---------- */
   STORE: {
-    NAME: 'WarungMbun',
+    NAME: 'Zhafran Store',
     TAGLINE: 'Belanja Hemat, Hidup Nikmat',
-    ADDRESS: 'Jl. Alhuda No. 70, Kp. Rawasapi Rt 03/09, Kel. Jatimulya, Kec. Tambun Selatan. Bekasi ',
+    ADDRESS: 'Kp.Rawasapi Rt 03/09,Kel.Jatimulya Kec.Tambun Selatan. Bekasi ',
     PHONE: '0897-3488-963',
   },
 
