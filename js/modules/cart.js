@@ -165,6 +165,14 @@ const CartModule = {
   },
 
   _cartItemHtml(item) {
+    const lineTotal = item.price * item.qty;
+    const discountAmount = item.discount
+      ? (item.discount.type === 'percent'
+          ? Math.round(lineTotal * (item.discount.value / 100))
+          : Math.min(item.discount.value, lineTotal))
+      : 0;
+    const hasDiscount = discountAmount > 0;
+
     return `
       <div class="cart-item" data-product-id="${item.productId}"
         style="display:flex; align-items:center; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border);">
@@ -172,6 +180,7 @@ const CartModule = {
         <div style="flex:1; min-width:0;">
           <div style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
             ${Utils.escapeHtml(item.name)}
+            ${hasDiscount ? `<span class="badge badge-danger" style="margin-left:6px; font-size:10px;">-${Utils.formatCurrency(discountAmount)}</span>` : ''}
           </div>
           <div style="font-size: var(--font-size-xs); color: var(--color-text-muted);">
             ${Utils.formatCurrency(item.price)} x ${item.qty}
@@ -186,10 +195,92 @@ const CartModule = {
             <i class="fa-solid fa-plus" style="font-size: 10px;"></i>
           </button>
         </div>
+        <button class="icon-btn" style="width:28px;height:28px; ${hasDiscount ? 'color: var(--color-danger);' : ''}" data-item-discount="${item.productId}" aria-label="Diskon item ini" title="Diskon item ini">
+          <i class="fa-solid fa-tag" style="font-size: 11px;"></i>
+        </button>
         <button class="icon-btn" style="width:28px;height:28px; color: var(--color-danger);" data-cart-remove="${item.productId}" aria-label="Hapus item">
           <i class="fa-solid fa-trash" style="font-size: 11px;"></i>
         </button>
       </div>`;
+  },
+
+  /* ===================================================
+     DISKON PER-ITEM
+     Beda dengan diskon kode (berlaku ke semua barang), ini
+     cuma motong harga 1 barang tertentu di keranjang.
+     =================================================== */
+
+  openItemDiscountModal(productId) {
+    const item = STATE.cart.find(i => i.productId === String(productId));
+    if (!item) return;
+
+    const current = item.discount || { type: 'percent', value: '' };
+
+    ModalManager.open('itemDiscount', {
+      title: `Diskon: ${item.name}`,
+      size: 'sm',
+      bodyHtml: `
+        <div class="form-grid" style="grid-template-columns: 1fr;">
+          <label class="form-field">
+            <span>Jenis Diskon</span>
+            <select id="itemDiscountType" class="select-field">
+              <option value="percent" ${current.type === 'percent' ? 'selected' : ''}>Persen (%)</option>
+              <option value="fixed" ${current.type === 'fixed' ? 'selected' : ''}>Potongan Tetap (Rp)</option>
+            </select>
+          </label>
+          <label class="form-field">
+            <span>Nilai Diskon</span>
+            <input type="number" id="itemDiscountValue" min="0" value="${current.value}" placeholder="mis. 10">
+          </label>
+          <p style="font-size: var(--font-size-xs); color: var(--color-text-muted);">
+            Harga barang ini: ${Utils.formatCurrency(item.price)} x ${item.qty} = ${Utils.formatCurrency(item.price * item.qty)}
+          </p>
+        </div>`,
+      footerHtml: `
+        ${item.discount ? `<button class="btn btn-secondary" id="removeItemDiscountBtn">Hapus Diskon</button>` : ''}
+        <button class="btn btn-secondary" data-modal-close>Batal</button>
+        <button class="btn btn-primary" id="saveItemDiscountBtn">Terapkan</button>`,
+    });
+
+    document.getElementById('saveItemDiscountBtn')?.addEventListener('click', () => {
+      const type = document.getElementById('itemDiscountType')?.value;
+      const value = Number(document.getElementById('itemDiscountValue')?.value) || 0;
+
+      if (value <= 0) {
+        Utils.showToast('Masukkan nilai diskon yang valid', 'error');
+        return;
+      }
+      if (type === 'percent' && value > 100) {
+        Utils.showToast('Diskon persen maksimal 100%', 'error');
+        return;
+      }
+
+      this.setItemDiscount(productId, type, value);
+      ModalManager.close();
+    });
+
+    document.getElementById('removeItemDiscountBtn')?.addEventListener('click', () => {
+      this.removeItemDiscount(productId);
+      ModalManager.close();
+    });
+  },
+
+  setItemDiscount(productId, type, value) {
+    const pid = String(productId);
+    STATE.cart = STATE.cart.map(item =>
+      item.productId === pid ? { ...item, discount: { type, value } } : item
+    );
+    STATE.setCart([...STATE.cart]);
+    Utils.showToast('Diskon item diterapkan', 'success');
+  },
+
+  removeItemDiscount(productId) {
+    const pid = String(productId);
+    STATE.cart = STATE.cart.map(item =>
+      item.productId === pid ? { ...item, discount: null } : item
+    );
+    STATE.setCart([...STATE.cart]);
+    Utils.showToast('Diskon item dihapus', 'success');
   },
 
   renderSummary() {
@@ -198,8 +289,12 @@ const CartModule = {
     const totalEl = document.getElementById('cartTotal');
     const payBtn = document.getElementById('payBtn');
 
+    // Gabungan diskon per-item + diskon kode, ditampilkan sebagai satu
+    // angka "Diskon" di ringkasan (index.html tidak perlu diubah lagi).
+    const totalDiscount = STATE.cartItemDiscountsTotal + STATE.cartDiscountAmount;
+
     if (subtotalEl) subtotalEl.textContent = Utils.formatCurrency(STATE.cartSubtotal);
-    if (discountEl) discountEl.textContent = `- ${Utils.formatCurrency(STATE.cartDiscountAmount)}`;
+    if (discountEl) discountEl.textContent = `- ${Utils.formatCurrency(totalDiscount)}`;
     if (totalEl) totalEl.textContent = Utils.formatCurrency(STATE.cartTotal);
     if (payBtn) payBtn.disabled = STATE.cart.length === 0;
   },
