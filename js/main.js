@@ -357,16 +357,20 @@ const AppMain = {
     );
     if (!confirmed) return;
 
-    try {
-      await API.transactionItems.deleteByTransaction(id);
-      await API.transactions.delete(id);
+    // PROTEKSI PIN: hapus transaksi adalah aksi permanen & sensitif,
+    // wajib verifikasi PIN dulu supaya tidak sembarang orang bisa hapus.
+    AuthModule.requirePin('menghapus transaksi ini', async () => {
+      try {
+        await API.transactionItems.deleteByTransaction(id);
+        await API.transactions.delete(id);
 
-      STATE.setTransactions(STATE.transactions.filter(t => String(t.id) !== String(id)));
-      Utils.showToast('Transaksi dihapus', 'success');
-    } catch (err) {
-      console.error('[AppMain] Gagal menghapus transaksi:', err);
-      Utils.showToast('Gagal menghapus transaksi, coba lagi', 'error');
-    }
+        STATE.setTransactions(STATE.transactions.filter(t => String(t.id) !== String(id)));
+        Utils.showToast('Transaksi dihapus', 'success');
+      } catch (err) {
+        console.error('[AppMain] Gagal menghapus transaksi:', err);
+        Utils.showToast('Gagal menghapus transaksi, coba lagi', 'error');
+      }
+    });
   },
 
   /* ===================================================
