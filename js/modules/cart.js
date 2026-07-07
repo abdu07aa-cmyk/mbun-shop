@@ -255,8 +255,13 @@ const CartModule = {
         return;
       }
 
-      this.setItemDiscount(productId, type, value);
-      ModalManager.close();
+      // PROTEKSI PIN: catatan penting — requirePin() membuka modal BARU
+      // (menimpa modal diskon ini di #modalRoot), makanya `type` dan
+      // `value` HARUS sudah dibaca ke variabel di atas SEBELUM baris ini,
+      // bukan dibaca ulang dari DOM sesudahnya (modal aslinya sudah hilang).
+      AuthModule.requirePin('memberi diskon item ini', () => {
+        this.setItemDiscount(productId, type, value);
+      });
     });
 
     document.getElementById('removeItemDiscountBtn')?.addEventListener('click', () => {
