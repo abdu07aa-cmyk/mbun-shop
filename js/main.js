@@ -53,7 +53,7 @@ const AppMain = {
       this.switchView('dashboard');
       AuthModule.promptCashierNameIfNeeded();
 
-      console.info('[WarungKita] Aplikasi siap ✅');
+      console.info('[MBUN COLLECTION] Aplikasi siap ✅');
 
     } catch (err) {
       console.error('[AppMain] Error fatal saat init:', err);
@@ -278,6 +278,9 @@ const AppMain = {
           : '<span class="badge badge-success">Lunas</span>'}
         </td>
         <td style="display:flex; gap: var(--space-2);">
+          <button class="icon-btn" data-view-transaction="${t.id}" title="Detail Transaksi">
+            <i class="fa-solid fa-eye"></i>
+          </button>
           ${(t.total_amount >= 0 && t.payment_status !== 'refunded') ? `
             <button class="icon-btn" data-return-transaction="${t.id}" title="Retur">
               <i class="fa-solid fa-rotate-left"></i>
@@ -287,6 +290,10 @@ const AppMain = {
           </button>
         </td>
       </tr>`).join('');
+
+    Utils.qsa('[data-view-transaction]').forEach(btn => {
+      btn.addEventListener('click', () => this.openTransactionDetailModal(btn.dataset.viewTransaction));
+    });
 
     Utils.qsa('[data-return-transaction]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -301,6 +308,38 @@ const AppMain = {
 
     Utils.qsa('[data-delete-transaction]').forEach(btn => {
       btn.addEventListener('click', () => this._deleteTransaction(btn.dataset.deleteTransaction));
+    });
+  },
+
+  /** Menampilkan rincian item lengkap dari 1 transaksi */
+  openTransactionDetailModal(transactionId) {
+    const t = STATE.transactions.find(tr => String(tr.id) === String(transactionId));
+    if (!t) return;
+
+    const itemsHtml = (t.items || []).map(item => {
+      const product = STATE.products.find(p => String(p.id) === String(item.product_id));
+      return `
+        <div class="receipt-row">
+          <span>${Utils.escapeHtml(product?.name || 'Produk')} x${item.quantity}</span>
+          <span>${Utils.formatCurrency(item.price * item.quantity)}</span>
+        </div>`;
+    }).join('') || '<p style="color:var(--color-text-muted); font-size: var(--font-size-sm); text-align:center; padding: var(--space-4) 0;">Detail item tidak tersedia untuk transaksi ini.</p>';
+
+    ModalManager.open('transactionDetail', {
+      title: 'Detail Transaksi',
+      size: 'sm',
+      bodyHtml: `
+        <div class="receipt">
+          <div class="receipt-row"><span>Waktu</span><span>${Utils.formatDateTime(t.created_at)}</span></div>
+          <div class="receipt-row"><span>Pelanggan</span><span>${Utils.escapeHtml(t.customer_name || 'Umum')}</span></div>
+          <div class="receipt-row"><span>Metode</span><span>${Utils.escapeHtml((t.payment_method || '-').toUpperCase())}</span></div>
+          <div class="receipt-divider"></div>
+          ${itemsHtml}
+          <div class="receipt-divider"></div>
+          <div class="receipt-row"><span>Diskon</span><span>-${Utils.formatCurrency(t.discount || 0)}</span></div>
+          <div class="receipt-total-row"><span>Total</span><span>${Utils.formatCurrency(t.total_amount)}</span></div>
+        </div>`,
+      footerHtml: `<button class="btn btn-secondary btn-block" data-modal-close>Tutup</button>`,
     });
   },
 
@@ -350,11 +389,59 @@ const AppMain = {
         <td><span class="badge badge-info">${c.points || 0} poin</span></td>
         <td>${Utils.formatDate(c.created_at)}</td>
         <td>
+          <button class="icon-btn" data-view-customer-history="${c.id}" aria-label="Riwayat Belanja" title="Riwayat Belanja">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+          </button>
           <button class="icon-btn" data-edit-customer="${c.id}" aria-label="Edit">
             <i class="fa-solid fa-pen"></i>
           </button>
         </td>
       </tr>`).join('');
+
+    Utils.qsa('[data-view-customer-history]').forEach(btn => {
+      btn.addEventListener('click', () => this.openCustomerHistoryModal(btn.dataset.viewCustomerHistory));
+    });
+  },
+
+  /** Menampilkan seluruh riwayat transaksi milik 1 pelanggan tertentu */
+  openCustomerHistoryModal(customerId) {
+    const customer = STATE.customers.find(c => String(c.id) === String(customerId));
+    if (!customer) return;
+
+    const trxList = STATE.transactions
+      .filter(t => t.customer_name === customer.name)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    const totalSpent = trxList.reduce((sum, t) => sum + (Number(t.total_amount) || 0), 0);
+
+    const bodyHtml = trxList.length === 0
+      ? `<div class="cart-empty-state"><i class="fa-solid fa-receipt"></i><p>Belum ada riwayat transaksi untuk pelanggan ini</p></div>`
+      : `
+        <p style="margin-bottom: var(--space-4); font-size: var(--font-size-sm); color: var(--color-text-secondary);">
+          ${trxList.length} transaksi &middot; Total belanja ${Utils.formatCurrency(totalSpent)}
+        </p>
+        ${trxList.map(t => `
+          <div class="card" style="margin-bottom: var(--space-3); padding: var(--space-4);">
+            <div style="display:flex; justify-content:space-between; margin-bottom: var(--space-2); gap: var(--space-2);">
+              <strong style="font-size: var(--font-size-sm);">${Utils.formatDateTime(t.created_at)}</strong>
+              <strong style="font-size: var(--font-size-sm); flex-shrink:0;">${Utils.formatCurrency(t.total_amount)}</strong>
+            </div>
+            <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+              ${(t.items || []).map(item => {
+                const product = STATE.products.find(p => String(p.id) === String(item.product_id));
+                return `${Utils.escapeHtml(product?.name || 'Produk')} x${item.quantity}`;
+              }).join(', ') || 'Detail item tidak tersedia'}
+            </div>
+          </div>
+        `).join('')}
+      `;
+
+    ModalManager.open('customerHistory', {
+      title: `Riwayat Belanja: ${Utils.escapeHtml(customer.name)}`,
+      size: 'md',
+      bodyHtml,
+      footerHtml: `<button class="btn btn-secondary btn-block" data-modal-close>Tutup</button>`,
+    });
   },
 
   /* ===================================================
