@@ -32,9 +32,9 @@ const CONFIG = {
 
   /* ---------- INFORMASI TOKO ---------- */
   STORE: {
-    NAME: 'Zhafran Store',
+    NAME: 'MBUN COLLECTION',
     TAGLINE: 'Belanja Hemat, Hidup Nikmat',
-    ADDRESS: 'Kp.Rawasapi Rt 03/09,Kel.Jatimulya Kec.Tambun Selatan. Bekasi ',
+    ADDRESS: 'Belanja Hemat, Hidup Nikmat ',
     PHONE: '0897-3488-963',
   },
 
