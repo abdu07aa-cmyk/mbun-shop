@@ -1,4 +1,4 @@
-# 🛒 WarungKita PRO MAX — Enterprise POS System
+# 🛒 MBUN COLLECTION — Enterprise POS System
 
 Sistem Point of Sale (POS) modern berbasis web untuk warung dan toko kecil-menengah. Dibangun dengan HTML5, CSS3, dan JavaScript Vanilla (ES6+) tanpa framework, menggunakan Supabase sebagai backend cloud dengan dukungan mode offline-first.
 
