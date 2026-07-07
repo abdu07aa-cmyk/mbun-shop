@@ -110,18 +110,32 @@ const STATE = {
     return this.cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
   },
 
-  /** Nominal potongan diskon aktif (dalam Rupiah) */
+  /** Total potongan dari diskon PER-ITEM (baru, sebelum diskon kode) */
+  get cartItemDiscountsTotal() {
+    return this.cart.reduce((sum, item) => {
+      if (!item.discount) return sum;
+      const lineTotal = item.price * item.qty;
+      const { type, value } = item.discount;
+      const amount = type === 'percent'
+        ? Math.round(lineTotal * (value / 100))
+        : Math.min(value, lineTotal);
+      return sum + amount;
+    }, 0);
+  },
+
+  /** Nominal potongan diskon KODE aktif (dalam Rupiah), dihitung dari sisa subtotal setelah diskon per-item */
   get cartDiscountAmount() {
     if (!this.activeDiscount) return 0;
+    const base = Math.max(0, this.cartSubtotal - this.cartItemDiscountsTotal);
     const { type, value } = this.activeDiscount;
-    if (type === 'percent') return Math.round(this.cartSubtotal * (value / 100));
-    if (type === 'fixed') return Math.min(value, this.cartSubtotal);
+    if (type === 'percent') return Math.round(base * (value / 100));
+    if (type === 'fixed') return Math.min(value, base);
     return 0;
   },
 
-  /** Total akhir setelah dikurangi diskon */
+  /** Total akhir setelah dikurangi diskon per-item DAN diskon kode */
   get cartTotal() {
-    return Math.max(0, this.cartSubtotal - this.cartDiscountAmount);
+    return Math.max(0, this.cartSubtotal - this.cartItemDiscountsTotal - this.cartDiscountAmount);
   },
 
   /** Jumlah total item (qty) di keranjang */
