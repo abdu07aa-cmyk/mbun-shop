@@ -375,6 +375,9 @@ const EventsModule = {
 
       const removeBtn = e.target.closest('[data-cart-remove]');
       if (removeBtn) CartModule.removeItem(removeBtn.dataset.cartRemove);
+
+      const itemDiscountBtn = e.target.closest('[data-item-discount]');
+      if (itemDiscountBtn) CartModule.openItemDiscountModal(itemDiscountBtn.dataset.itemDiscount);
     });
   },
 };
