@@ -200,10 +200,20 @@ const EventsModule = {
     // Terapkan kode diskon
     document.getElementById('applyDiscountBtn')?.addEventListener('click', () => {
       const code = document.getElementById('discountCodeInput')?.value;
-      if (CartModule.applyDiscountCode(code)) {
-        const input = document.getElementById('discountCodeInput');
-        if (input) input.value = '';
+      if (!code || !code.trim()) {
+        Utils.showToast('Masukkan kode diskon dulu', 'warning');
+        return;
       }
+
+      // PROTEKSI PIN: diskon kode berlaku ke SELURUH keranjang, jadi
+      // wajib verifikasi PIN dulu supaya tidak sembarang orang bisa
+      // motong harga transaksi.
+      AuthModule.requirePin('menerapkan kode diskon', () => {
+        if (CartModule.applyDiscountCode(code)) {
+          const input = document.getElementById('discountCodeInput');
+          if (input) input.value = '';
+        }
+      });
     });
 
     // Tahan keranjang
@@ -355,7 +365,10 @@ const EventsModule = {
       const deleteBtn = e.target.closest('[data-delete-product]');
       if (deleteBtn) {
         if (window.confirm('Hapus produk ini? Tindakan tidak bisa dibatalkan.')) {
-          ProductsModule.remove(deleteBtn.dataset.deleteProduct);
+          // PROTEKSI PIN: hapus produk itu permanen & sensitif.
+          AuthModule.requirePin('menghapus produk ini', () => {
+            ProductsModule.remove(deleteBtn.dataset.deleteProduct);
+          });
         }
       }
 
