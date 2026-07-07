@@ -33,13 +33,39 @@ const Utils = {
   },
 
   /* ---------- FORMAT TANGGAL & WAKTU ---------- */
+
+  /**
+   * FIX: Supabase/Postgres kadang mengembalikan timestamp TANPA info zona
+   * waktu (mis. "2026-07-06T05:30:00" tanpa "Z" di akhir). String seperti
+   * itu, kalau langsung dibuat jadi `new Date(...)`, oleh JavaScript
+   * dianggap sebagai WAKTU LOKAL — padahal nilainya sebenarnya UTC. Ini
+   * bikin jam yang ditampilkan meleset sebesar selisih zona waktu (di
+   * Indonesia/WIB, meleset 7 jam). Fungsi ini memaksa string tanpa
+   * info zona waktu untuk dianggap UTC (dengan menambahkan "Z"), supaya
+   * jam yang ditampilkan ke pengguna akurat sesuai zona waktu lokal HP.
+   * @param {string|Date|number} value
+   * @returns {Date}
+   */
+  _parseDate(value) {
+    if (value instanceof Date) return value;
+    if (typeof value === 'string') {
+      const hasTimezoneInfo = /[Zz]|[+-]\d{2}:?\d{2}$/.test(value);
+      if (!hasTimezoneInfo) {
+        // Format "YYYY-MM-DD HH:MM:SS" (spasi) -> ubah jadi "YYYY-MM-DDTHH:MM:SSZ"
+        const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+        return new Date(normalized + 'Z');
+      }
+    }
+    return new Date(value);
+  },
+
   /**
    * Format ISO date string menjadi format tanggal Indonesia.
    * @param {string|Date} date
    * @param {object} options - opsi tambahan Intl.DateTimeFormat
    */
   formatDate(date, options = {}) {
-    const d = new Date(date);
+    const d = this._parseDate(date);
     return new Intl.DateTimeFormat(CONFIG.CURRENCY_LOCALE, {
       day: 'numeric',
       month: 'short',
@@ -50,7 +76,7 @@ const Utils = {
 
   /** Format tanggal + jam, mis. "30 Jun 2026, 14:05" */
   formatDateTime(date) {
-    const d = new Date(date);
+    const d = this._parseDate(date);
     const datePart = this.formatDate(d);
     const timePart = new Intl.DateTimeFormat(CONFIG.CURRENCY_LOCALE, {
       hour: '2-digit',
@@ -62,7 +88,7 @@ const Utils = {
   /** Mengubah tanggal menjadi teks relatif, mis. "5 menit lalu" */
   formatRelativeTime(date) {
     const now = new Date();
-    const target = new Date(date);
+    const target = this._parseDate(date);
     const diffSeconds = Math.floor((now - target) / 1000);
 
     if (diffSeconds < 60) return 'Baru saja';
