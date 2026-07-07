@@ -161,7 +161,9 @@ const PaymentModule = {
       payment_method: this.selectedMethod,
       payment_status: 'paid',
       customer_name: STATE.activeCustomer?.name || 'Umum',
-      discount: STATE.cartDiscountAmount,
+      // Digabung: diskon per-item + diskon kode, biar kolom "discount"
+      // di laporan/histori mencerminkan total potongan yang sebenarnya.
+      discount: STATE.cartItemDiscountsTotal + STATE.cartDiscountAmount,
       shift_id: STATE.currentShift?.id || null,
     };
 
