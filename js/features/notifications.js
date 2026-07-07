@@ -84,7 +84,9 @@ const Notifications = {
       size: 'sm',
       bodyHtml: this._listHtml(),
       footerHtml: this.items.length > 0
-        ? `<button class="btn btn-secondary btn-block" id="markAllReadBtn">Tandai Semua Dibaca</button>`
+        ? `
+          <button class="btn btn-secondary" id="markAllReadBtn">Tandai Semua Dibaca</button>
+          <button class="btn btn-danger" id="clearAllNotifBtn">Hapus Semua</button>`
         : '',
     });
 
@@ -96,6 +98,40 @@ const Notifications = {
       this._updateBadge();
       ModalManager.close();
     });
+
+    document.getElementById('clearAllNotifBtn')?.addEventListener('click', () => {
+      this.items = [];
+      this._updateBadge();
+      ModalManager.close();
+      Utils.showToast('Semua notifikasi dihapus', 'success');
+    });
+
+    this._bindDeleteButtons();
+  },
+
+  /** Menghapus 1 notifikasi berdasarkan id, lalu render ulang daftarnya */
+  _removeItem(notifId) {
+    this.items = this.items.filter(n => n.id !== notifId);
+    this._updateBadge();
+
+    const listEl = document.getElementById('notifListBody');
+    if (listEl) listEl.innerHTML = this._listHtml();
+    this._bindDeleteButtons();
+
+    // Kalau daftar jadi kosong, hilangkan juga tombol footer
+    if (this.items.length === 0) {
+      const footer = document.querySelector('#modalRoot .modal-footer');
+      if (footer) footer.innerHTML = '';
+    }
+  },
+
+  _bindDeleteButtons() {
+    document.querySelectorAll('[data-delete-notif]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._removeItem(btn.dataset.deleteNotif);
+      });
+    });
   },
 
   _listHtml() {
@@ -103,18 +139,23 @@ const Notifications = {
       return `<div class="cart-empty-state"><i class="fa-solid fa-bell-slash"></i><p>Belum ada notifikasi</p></div>`;
     }
 
-    return this.items.map(n => `
-      <div style="display:flex; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border);">
+    const rows = this.items.map(n => `
+      <div style="display:flex; gap: var(--space-3); align-items:flex-start; padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border);">
         <span class="badge badge-${n.severity}" style="height: fit-content;">
           <i class="fa-solid ${n.severity === 'danger' ? 'fa-circle-exclamation' : n.severity === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info'}"></i>
         </span>
-        <div>
+        <div style="flex:1; min-width:0;">
           <strong style="font-size: var(--font-size-sm);">${Utils.escapeHtml(n.title)}</strong><br>
           <span style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">${Utils.escapeHtml(n.message)}</span><br>
           <small>${Utils.formatRelativeTime(n.createdAt)}</small>
         </div>
+        <button class="icon-btn" data-delete-notif="${n.id}" aria-label="Hapus notifikasi" title="Hapus" style="flex-shrink:0; width:32px; height:32px;">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
     `).join('');
+
+    return `<div id="notifListBody">${rows}</div>`;
   },
 
   init() {
