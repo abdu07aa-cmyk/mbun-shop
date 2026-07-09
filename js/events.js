@@ -292,6 +292,10 @@ const EventsModule = {
     document.getElementById('backupDataBtn')?.addEventListener('click', () => {
       BackupModule.downloadBackup();
     });
+
+    document.getElementById('restoreDataBtn')?.addEventListener('click', () => {
+      BackupModule.openRestoreModal();
+    });
   },
 
   /* ===================================================
