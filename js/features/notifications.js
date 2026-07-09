@@ -49,6 +49,50 @@ const Notifications = {
     this._updateBadge();
   },
 
+  /** Mengecek produk yang tanggal kadaluarsanya sudah lewat atau mendekati */
+  checkExpiringProducts() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expiring = STATE.products.filter(p => {
+      if (!p.expiry_date) return false;
+      const expiryDate = new Date(p.expiry_date);
+      const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+      return daysLeft <= CONFIG.EXPIRY_WARNING_DAYS;
+    });
+
+    this.items = this.items.filter(n => {
+      if (n.type !== 'expiring') return true;
+      return expiring.some(p => p.id === n.productId);
+    });
+
+    expiring.forEach(product => {
+      const alreadyExists = this.items.some(n => n.type === 'expiring' && n.productId === product.id);
+      if (alreadyExists) return;
+
+      const expiryDate = new Date(product.expiry_date);
+      const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+      const isExpired = daysLeft < 0;
+
+      this.items.unshift({
+        id: Utils.generateId('NOTIF'),
+        type: 'expiring',
+        productId: product.id,
+        title: isExpired ? 'Produk Kadaluarsa' : 'Mendekati Kadaluarsa',
+        message: isExpired
+          ? `${product.name} sudah kadaluarsa ${Math.abs(daysLeft)} hari lalu`
+          : daysLeft === 0
+            ? `${product.name} kadaluarsa hari ini`
+            : `${product.name} kadaluarsa dalam ${daysLeft} hari`,
+        severity: isExpired ? 'danger' : 'warning',
+        createdAt: new Date().toISOString(),
+        isRead: false,
+      });
+    });
+
+    this._updateBadge();
+  },
+
   /**
    * Menambahkan notifikasi umum non-stok (mis. dari fitur lain
    * di masa depan: shift hampir habis, transaksi besar, dll).
@@ -159,6 +203,9 @@ const Notifications = {
   },
 
   init() {
-    STATE.subscribe('products', () => this.checkLowStock());
+    STATE.subscribe('products', () => {
+      this.checkLowStock();
+      this.checkExpiringProducts();
+    });
   },
 };
