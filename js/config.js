@@ -1,99 +1,544 @@
-/* =====================================================
-   WARUNGKITA PRO MAX — CONFIG.JS
-   Konfigurasi koneksi Supabase dan konstanta global
-   aplikasi. File ini HARUS dimuat paling pertama
-   (sebelum state.js, api.js, dll) karena modul lain
-   bergantung pada objek CONFIG di sini.
-   ===================================================== */
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="MBUN COLLECTION — Sistem Point of Sale (POS) modern untuk warung & toko">
+  <meta name="theme-color" content="#3b82f6">
+  <title>MBUN COLLECTION | Enterprise POS System</title>
 
-const CONFIG = {
-  /* ---------- SUPABASE ---------- */
-  // URL project Supabase. Bisa di-override dari halaman Pengaturan
-  // dan akan disimpan ke localStorage (lihat js/modules/auth.js).
-  SUPABASE_URL: localStorage.getItem('wk_supabase_url') || 'https://marelgsluzshkwxwcjod.supabase.co',
+  <!-- ===== FAVICON ===== -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛒</text></svg>">
 
-  // Anon/public key Supabase. JANGAN pernah commit service_role key di sini.
-  SUPABASE_ANON_KEY: localStorage.getItem('wk_supabase_key') || '',
+  <!-- ===== GOOGLE FONTS: INTER ===== -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
-  // Endpoint REST Supabase (PostgREST). Dipakai oleh js/api.js
-  get SUPABASE_REST_URL() {
-    return `${this.SUPABASE_URL}/rest/v1`;
-  },
+  <!-- ===== FONT AWESOME 6.4.0 ===== -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  /* ---------- NAMA TABEL DATABASE ---------- */
-  TABLES: {
-    PRODUCTS: 'products',
-    TRANSACTIONS: 'transactions',
-    TRANSACTION_ITEMS: 'transaction_items',
-    SHIFTS: 'shifts',
-    CUSTOMERS: 'customers',
-    STOCK_MOVEMENTS: 'stock_movements',
-  },
+  <!-- ===== CSS MODULAR (urutan penting: variables harus paling awal) ===== -->
+  <link rel="stylesheet" href="css/variables.css?v=20260706g">
+  <link rel="stylesheet" href="css/base.css?v=20260706g">
+  <link rel="stylesheet" href="css/components.css?v=20260706g">
+  <link rel="stylesheet" href="css/layout.css?v=20260706g">
+  <link rel="stylesheet" href="css/modals.css?v=20260706g">
+  <link rel="stylesheet" href="css/animations.css?v=20260706g">
+  <link rel="stylesheet" href="css/responsive.css?v=20260706g">
+  <link rel="stylesheet" href="css/print.css?v=20260706g" media="print">
+</head>
+<body data-theme="light">
 
-  /* ---------- INFORMASI TOKO ---------- */
-  STORE: {
-    NAME: 'MBUN COLLECTION',
-    TAGLINE: 'Belanja Hemat, Hidup Nikmat',
-    ADDRESS: 'Jl. Contoh No. 123, Jakarta',
-    PHONE: '0812-3456-7890',
-  },
+  <!-- ===================================================== -->
+  <!-- LOADING SCREEN                                          -->
+  <!-- ===================================================== -->
+  <div id="loadingScreen" class="loading-screen">
+    <div class="loading-logo">🛒</div>
+    <div class="loading-text">MBUN COLLECTION</div>
+    <div class="loading-bar"><span></span></div>
+  </div>
 
-  /* ---------- METODE PEMBAYARAN ---------- */
-  PAYMENT_METHODS: [
-    { id: 'cash', label: 'Tunai', icon: 'fa-money-bill-wave' },
-    { id: 'qris', label: 'QRIS', icon: 'fa-qrcode' },
-    { id: 'transfer', label: 'Transfer Bank', icon: 'fa-building-columns' },
-    { id: 'ewallet', label: 'E-Wallet', icon: 'fa-wallet' },
-  ],
+  <!-- ===================================================== -->
+  <!-- APP SHELL                                               -->
+  <!-- ===================================================== -->
+  <div id="app" class="app-shell">
 
-  /* ---------- KODE DISKON BAWAAN ---------- */
-  DISCOUNT_CODES: {
-    WARUNG10: { type: 'percent', value: 10, label: 'Diskon 10%' },
-    HEMAT20: { type: 'percent', value: 20, label: 'Diskon 20%' },
-    PROMO50: { type: 'percent', value: 50, label: 'Diskon 50%' },
-  },
+    <!-- ============== SIDEBAR ============== -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-logo">🛒</span>
+        <div class="sidebar-title">
+          <h1>MBUN COLLECTION</h1>
+          <span>POS SYSTEM</span>
+        </div>
+        <button id="sidebarToggle" class="icon-btn sidebar-toggle" aria-label="Tutup sidebar">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
 
-  /* ---------- AMBANG BATAS STOK MENIPIS ---------- */
-  LOW_STOCK_THRESHOLD: 5,
+      <nav class="sidebar-nav" id="sidebarNav">
+        <button class="nav-item is-active" data-view="dashboard">
+          <i class="fa-solid fa-chart-line"></i><span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-view="kasir">
+          <i class="fa-solid fa-cash-register"></i><span>Kasir</span>
+        </button>
+        <button class="nav-item" data-view="produk">
+          <i class="fa-solid fa-boxes-stacked"></i><span>Produk</span>
+        </button>
+        <button class="nav-item" data-view="transaksi">
+          <i class="fa-solid fa-receipt"></i><span>Transaksi</span>
+        </button>
+        <button class="nav-item" data-view="stok">
+          <i class="fa-solid fa-warehouse"></i><span>Stok Barang</span>
+        </button>
+        <button class="nav-item" data-view="pelanggan">
+          <i class="fa-solid fa-users"></i><span>Pelanggan</span>
+        </button>
+        <button class="nav-item" data-view="shift">
+          <i class="fa-solid fa-clock"></i><span>Shift Kasir</span>
+        </button>
+        <button class="nav-item" data-view="laporan">
+          <i class="fa-solid fa-file-invoice-dollar"></i><span>Laporan</span>
+        </button>
+        <button class="nav-item" data-view="pengaturan">
+          <i class="fa-solid fa-gear"></i><span>Pengaturan</span>
+        </button>
+      </nav>
 
-  /* ---------- KEYBOARD SHORTCUTS ---------- */
-  SHORTCUTS: {
-    FOCUS_SEARCH: { key: 'k', ctrlKey: true },
-    NEW_PRODUCT: { key: 'n', ctrlKey: true },
-    TOGGLE_DARK_MODE: { key: 'd', ctrlKey: true },
-    PROCESS_PAYMENT: { key: 'F9' },
-    CLOSE_ESCAPE: { key: 'Escape' },
-  },
+      <div class="sidebar-footer">
+        <button id="darkModeToggle" class="icon-btn" aria-label="Ganti tema gelap/terang">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+        <div class="sidebar-user">
+          <div class="sidebar-user-avatar">K</div>
+          <div class="sidebar-user-info">
+            <strong id="cashierName">Kasir</strong>
+            <span id="shiftStatusLabel">Shift belum dibuka</span>
+          </div>
+        </div>
+      </div>
+    </aside>
 
-  /* ---------- PENGATURAN UMUM ---------- */
-  CURRENCY: 'IDR',
-  CURRENCY_LOCALE: 'id-ID',
-  DEFAULT_PAGE_SIZE: 20,
+    <!-- ============== MAIN CONTENT ============== -->
+    <div class="main-area">
 
-  /* ---------- KUNCI LOCALSTORAGE (untuk offline-first / fallback) ---------- */
-  STORAGE_KEYS: {
-    PRODUCTS: 'wk_products',
-    TRANSACTIONS: 'wk_transactions',
-    CART: 'wk_cart',
-    CUSTOMERS: 'wk_customers',
-    SHIFTS: 'wk_shifts',
-    HELD_CARTS: 'wk_held_carts',
-    THEME: 'wk_theme',
-    SYNC_QUEUE: 'wk_sync_queue',
-  },
+      <!-- ============== TOPBAR ============== -->
+      <header class="topbar">
+        <button id="mobileMenuBtn" class="icon-btn topbar-menu-btn" aria-label="Buka menu">
+          <i class="fa-solid fa-bars"></i>
+        </button>
 
-  /* ---------- FLAG FITUR (untuk mengaktifkan/menonaktifkan fitur secara cepat) ---------- */
-  FEATURES: {
-    OFFLINE_MODE: true,
-    AI_ASSISTANT: true,
-    SOUND_EFFECTS: true,
-    BARCODE_SCANNER: true,
-  },
-};
+        <div class="topbar-search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="globalSearch" placeholder="Cari produk, transaksi, pelanggan... (Ctrl+K)">
+        </div>
 
-// Bekukan objek konfigurasi tingkat atas agar tidak sengaja
-// diubah dari modul lain (mutasi nilai di dalam TABLES/STORE
-// tetap dimungkinkan kecuali ikut di-freeze juga).
-Object.freeze(CONFIG.TABLES);
-Object.freeze(CONFIG.STORE);
-Object.freeze(CONFIG.STORAGE_KEYS);
+        <div class="topbar-actions">
+          <button class="icon-btn" id="notifBtn" aria-label="Notifikasi">
+            <i class="fa-solid fa-bell"></i>
+            <span class="badge-dot" id="notifBadge" hidden></span>
+          </button>
+          <button class="icon-btn" id="aiAssistantBtn" aria-label="AI Assistant">
+            <i class="fa-solid fa-robot"></i>
+          </button>
+          <button class="btn btn-primary" id="newSaleBtn">
+            <i class="fa-solid fa-plus"></i><span>Transaksi Baru</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- ============== VIEW CONTAINER ============== -->
+      <main class="view-container" id="viewContainer">
+
+        <!-- ====== VIEW: DASHBOARD ====== -->
+        <section class="view" id="view-dashboard" data-view="dashboard">
+          <div class="view-header">
+            <div>
+              <h2>Dashboard</h2>
+              <p class="view-subtitle">Ringkasan performa toko Anda hari ini</p>
+            </div>
+            <div class="view-header-actions">
+              <select id="dashboardRangeSelect" class="select-field">
+                <option value="today">Hari ini</option>
+                <option value="week">7 Hari Terakhir</option>
+                <option value="month">Bulan Ini</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="stat-grid" id="statGrid">
+            <!-- Stat cards di-render via js/modules/products.js & main.js -->
+          </div>
+
+          <div class="dashboard-grid">
+            <div class="card chart-card">
+              <div class="card-header">
+                <h3>Tren Penjualan</h3>
+              </div>
+              <canvas id="salesTrendChart"></canvas>
+            </div>
+            <div class="card chart-card">
+              <div class="card-header">
+                <h3>Produk Terlaris</h3>
+              </div>
+              <canvas id="topProductsChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>Transaksi Terbaru</h3>
+              <button class="link-btn" data-view-link="transaksi">Lihat semua</button>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="recentTransactionsTable">
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Waktu</th><th>Pelanggan</th><th>Metode</th><th>Total</th><th>Status</th>
+                  </tr>
+                </thead>
+                <tbody><!-- diisi dinamis --></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ====== VIEW: KASIR (POS) ====== -->
+        <section class="view" id="view-kasir" data-view="kasir" hidden>
+          <div class="pos-layout">
+
+            <div class="pos-products">
+              <div class="pos-products-toolbar">
+                <div class="category-pills" id="categoryPills">
+                  <button class="pill is-active" data-category="all">Semua</button>
+                </div>
+                <button class="icon-btn" id="scanBarcodeBtn" aria-label="Pindai barcode">
+                  <i class="fa-solid fa-barcode"></i>
+                </button>
+              </div>
+              <div class="product-grid" id="productGrid">
+                <!-- product cards diisi via js/modules/products.js -->
+              </div>
+            </div>
+
+            <aside class="pos-cart">
+              <div class="pos-cart-header">
+                <h3><i class="fa-solid fa-cart-shopping"></i> Keranjang</h3>
+                <button class="link-btn-danger" id="clearCartBtn">Kosongkan</button>
+              </div>
+
+              <div style="display:flex; align-items:center; justify-content:space-between; gap: var(--space-2); padding: var(--space-3) var(--space-5); border-bottom: 1px solid var(--color-border);">
+                <span style="font-size: var(--font-size-sm); color: var(--color-text-secondary); display:flex; align-items:center; gap:6px; min-width:0;">
+                  <i class="fa-solid fa-user"></i>
+                  <span id="activeCustomerName" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Umum</span>
+                </span>
+                <button class="link-btn" id="selectCustomerBtn" style="flex-shrink:0;">Pilih Pelanggan</button>
+              </div>
+
+              <div class="pos-cart-items" id="cartItems">
+                <div class="cart-empty-state">
+                  <i class="fa-solid fa-cart-shopping"></i>
+                  <p>Keranjang masih kosong</p>
+                </div>
+              </div>
+
+              <div class="pos-cart-summary">
+                <div class="summary-row">
+                  <span>Subtotal</span><span id="cartSubtotal">Rp 0</span>
+                </div>
+                <div class="summary-row">
+                  <span>Diskon</span><span id="cartDiscount">Rp 0</span>
+                </div>
+                <div class="summary-row summary-row-total">
+                  <span>Total</span><span id="cartTotal">Rp 0</span>
+                </div>
+
+                <div class="cart-promo">
+                  <input type="text" id="discountCodeInput" placeholder="Kode diskon (mis. WARUNG10)">
+                  <button class="btn btn-ghost" id="applyDiscountBtn">Terapkan</button>
+                </div>
+
+                <div class="cart-action-row">
+                  <button class="btn btn-secondary" id="holdCartBtn">
+                    <i class="fa-solid fa-pause"></i> Tahan
+                  </button>
+                  <button class="btn btn-secondary" id="viewHeldCartsBtn" style="position:relative;">
+                    <i class="fa-solid fa-layer-group"></i> Ditahan
+                    <span id="heldCartsBadge" class="bottom-nav-badge" style="position:absolute; top:-6px; right:-6px; display:none;">0</span>
+                  </button>
+                  <button class="btn btn-primary btn-block" id="payBtn">
+                    <i class="fa-solid fa-credit-card"></i> Bayar (F9)
+                  </button>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <!-- ====== VIEW: PRODUK ====== -->
+        <section class="view" id="view-produk" data-view="produk" hidden>
+          <div class="view-header">
+            <div>
+              <h2>Manajemen Produk</h2>
+              <p class="view-subtitle">Kelola daftar produk, harga, dan stok</p>
+            </div>
+            <div class="view-header-actions">
+              <button class="btn btn-secondary" id="exportProductsBtn">
+                <i class="fa-solid fa-file-export"></i> Ekspor
+              </button>
+              <button class="btn btn-primary" id="addProductBtn">
+                <i class="fa-solid fa-plus"></i> Tambah Produk (Ctrl+N)
+              </button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-wrap">
+              <table class="data-table" id="productsTable">
+                <thead>
+                  <tr>
+                    <th></th><th>Nama</th><th>Kategori</th><th>Harga</th><th>Stok</th><th>Barcode</th><th>Kadaluarsa</th><th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody><!-- diisi dinamis --></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ====== VIEW: TRANSAKSI ====== -->
+        <section class="view" id="view-transaksi" data-view="transaksi" hidden>
+          <div class="view-header">
+            <div>
+              <h2>Riwayat Transaksi</h2>
+              <p class="view-subtitle">Semua transaksi penjualan tercatat di sini</p>
+            </div>
+            <div class="view-header-actions">
+              <button class="btn btn-secondary" id="exportTransactionsBtn">
+                <i class="fa-solid fa-file-export"></i> Ekspor
+              </button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-wrap">
+              <table class="data-table" id="transactionsTable">
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Waktu</th><th>Kasir</th><th>Pelanggan</th><th>Item</th><th>Metode</th><th>Total</th><th>Status</th><th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody><!-- diisi dinamis --></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ====== VIEW: STOK ====== -->
+        <section class="view" id="view-stok" data-view="stok" hidden>
+          <div class="view-header">
+            <div>
+              <h2>Stok Barang</h2>
+              <p class="view-subtitle">Pantau dan kelola barang masuk/keluar</p>
+            </div>
+            <div class="view-header-actions">
+              <button class="btn btn-primary" id="stockInBtn">
+                <i class="fa-solid fa-dolly"></i> Barang Masuk
+              </button>
+              <button class="btn btn-secondary" id="stockOutBtn">
+                <i class="fa-solid fa-truck-ramp-box"></i> Barang Keluar
+              </button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-wrap">
+              <table class="data-table" id="stockTable">
+                <thead>
+                  <tr><th>Produk</th><th>Stok Saat Ini</th><th>Status</th><th>Aksi</th></tr>
+                </thead>
+                <tbody><!-- diisi dinamis --></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ====== VIEW: PELANGGAN ====== -->
+        <section class="view" id="view-pelanggan" data-view="pelanggan" hidden>
+          <div class="view-header">
+            <div>
+              <h2>Pelanggan</h2>
+              <p class="view-subtitle">Kelola data dan poin loyalitas pelanggan</p>
+            </div>
+            <div class="view-header-actions">
+              <button class="btn btn-primary" id="addCustomerBtn">
+                <i class="fa-solid fa-user-plus"></i> Tambah Pelanggan
+              </button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-wrap">
+              <table class="data-table" id="customersTable">
+                <thead>
+                  <tr><th>Nama</th><th>Telepon</th><th>Poin</th><th>Bergabung</th><th>Aksi</th></tr>
+                </thead>
+                <tbody><!-- diisi dinamis --></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ====== VIEW: SHIFT ====== -->
+        <section class="view" id="view-shift" data-view="shift" hidden>
+          <div class="view-header">
+            <div>
+              <h2>Manajemen Shift Kasir</h2>
+              <p class="view-subtitle">Buka dan tutup shift untuk rekonsiliasi kas</p>
+            </div>
+          </div>
+          <div class="card" id="shiftCard">
+            <!-- diisi dinamis via js/features/shift.js -->
+          </div>
+        </section>
+
+        <!-- ====== VIEW: LAPORAN ====== -->
+        <section class="view" id="view-laporan" data-view="laporan" hidden>
+          <div class="view-header">
+            <div>
+              <h2>Laporan Laba/Rugi</h2>
+              <p class="view-subtitle">Analisis HPP, margin, dan profitabilitas</p>
+            </div>
+          </div>
+          <div class="stat-grid" id="reportStatGrid"></div>
+          <div class="card chart-card">
+            <canvas id="profitLossChart"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Produk Paling Untung</h3></div>
+            <div id="topProfitList"></div>
+          </div>
+        </section>
+
+        <!-- ====== VIEW: PENGATURAN ====== -->
+        <section class="view" id="view-pengaturan" data-view="pengaturan" hidden>
+          <div class="view-header">
+            <div>
+              <h2>Pengaturan</h2>
+              <p class="view-subtitle">Konfigurasi toko, database, dan preferensi aplikasi</p>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Koneksi Database (Supabase)</h3>
+            <div class="form-grid">
+              <label class="form-field">
+                <span>Supabase URL</span>
+                <input type="text" id="settingSupabaseUrl" placeholder="https://xxxx.supabase.co">
+              </label>
+              <label class="form-field">
+                <span>Supabase Anon Key</span>
+                <input type="password" id="settingSupabaseKey" placeholder="••••••••••••">
+              </label>
+            </div>
+            <button class="btn btn-primary" id="saveSettingsBtn">Simpan Pengaturan</button>
+          </div>
+
+          <div class="card">
+            <h3>Kelola Kategori Produk</h3>
+            <p class="view-subtitle" style="margin-bottom: var(--space-4);">
+              Kategori yang muncul di form Tambah/Edit Produk.
+            </p>
+            <div id="categoryManageList" style="display:flex; flex-direction:column; gap: var(--space-2); margin-bottom: var(--space-4);"></div>
+            <div style="display:flex; gap: var(--space-2);">
+              <input type="text" id="newCategoryInput" placeholder="Nama kategori baru" style="flex:1;">
+              <button class="btn btn-secondary" id="addCategoryBtn"><i class="fa-solid fa-plus"></i> Tambah</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Keamanan</h3>
+            <p class="view-subtitle" style="margin-bottom: var(--space-4);">
+              PIN ini akan diminta setiap kali ada yang mencoba menghapus transaksi/produk atau memberi diskon — mencegah penyalahgunaan oleh yang tidak berwenang.
+            </p>
+            <div class="form-grid">
+              <label class="form-field">
+                <span>PIN Keamanan</span>
+                <input type="password" id="settingPin" placeholder="Masukkan PIN baru" autocomplete="off">
+              </label>
+            </div>
+            <button class="btn btn-primary" id="savePinBtn">Simpan PIN</button>
+          </div>
+
+          <div class="card">
+            <h3>Cadangan Data</h3>
+            <p class="view-subtitle" style="margin-bottom: var(--space-4);">
+              Download semua data (produk, pelanggan, transaksi) sebagai 1 file JSON, buat jaga-jaga kalau perlu dipulihkan nanti.
+            </p>
+            <button class="btn btn-secondary btn-block" id="backupDataBtn">
+              <i class="fa-solid fa-cloud-arrow-down"></i> Download Cadangan Data
+            </button>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ===================================================== -->
+  <!-- MODALS (struktur kosong, diisi/dikontrol via JS)        -->
+  <!-- ===================================================== -->
+  <div id="modalRoot" class="modal-root" aria-hidden="true"></div>
+  <div id="barcodeScannerRoot"></div>
+
+  <!-- ===================================================== -->
+  <!-- TOAST CONTAINER ===================================== -->
+  <!-- ========== BOTTOM NAV (Mobile Only) ========== -->
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="bottom-nav-item is-active" data-view="dashboard">
+      <i class="fa-solid fa-chart-line"></i><span>Dashboard</span>
+    </button>
+    <button class="bottom-nav-item" data-view="kasir">
+      <i class="fa-solid fa-cash-register"></i><span>Kasir</span>
+    </button>
+    <button class="bottom-nav-item" data-view="produk">
+      <i class="fa-solid fa-boxes-stacked"></i><span>Produk</span>
+    </button>
+    <button class="bottom-nav-item" data-view="transaksi">
+      <i class="fa-solid fa-receipt"></i><span>Transaksi</span>
+    </button>
+    <button class="bottom-nav-item" data-view="pengaturan">
+      <i class="fa-solid fa-gear"></i><span>Lainnya</span>
+    </button>
+  </nav>
+
+  <!-- ========== FLOATING CART BUTTON (Mobile POS) ========== -->
+  <button class="cart-fab" id="cartFab" aria-label="Lihat keranjang">
+    <i class="fa-solid fa-cart-shopping"></i>
+    <span>Keranjang</span>
+    <span class="cart-fab-badge" id="cartFabBadge">0</span>
+  </button>
+
+  <!-- ========== CART BACKDROP (Mobile) ========== -->
+  <div class="cart-backdrop" id="cartBackdrop"></div>
+
+  <!-- ========== SIDEBAR BACKDROP (Mobile) ========== -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- ===================================================== -->
+  <!-- LIBRARIES (CDN) ====================================== -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <!-- ===================================================== -->
+  <!-- APP SCRIPTS (urutan dependensi penting)               -->
+  <!-- ===================================================== -->
+  <script src="js/config.js?v=20260706g"></script>
+  <script src="js/state.js?v=20260706g"></script>
+  <script src="js/utils.js?v=20260706g"></script>
+  <script src="js/api.js?v=20260706g"></script>
+  <script src="js/charts.js?v=20260706g"></script>
+
+  <script src="js/modules/products.js?v=20260706g"></script>
+  <script src="js/modules/cart.js?v=20260706g"></script>
+  <script src="js/modules/payment.js?v=20260706g"></script>
+  <script src="js/modules/stock.js?v=20260706g"></script>
+  <script src="js/modules/ai.js?v=20260706g"></script>
+  <script src="js/modules/auth.js?v=20260706g"></script>
+
+  <script src="js/features/export.js?v=20260706g"></script>
+  <script src="js/features/offline.js?v=20260706g"></script>
+  <script src="js/features/barcode.js?v=20260706g"></script>
+  <script src="js/features/hold-cart.js?v=20260706g"></script>
+  <script src="js/features/notifications.js?v=20260706g"></script>
+  <script src="js/features/backup.js?v=20260706g"></script>
+  <script src="js/features/shift.js?v=20260706g"></script>
+  <script src="js/features/split-payment.js?v=20260706g"></script>
+  <script src="js/features/returns.js?v=20260706g"></script>
+
+  <script src="js/emoji-picker.js?v=20260706g"></script>
+  <script src="js/events.js?v=20260706g"></script>
+  <script src="js/main.js?v=20260706g"></script>
+</body>
+</html>
