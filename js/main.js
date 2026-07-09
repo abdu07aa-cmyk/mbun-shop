@@ -173,6 +173,7 @@ const AppMain = {
       case 'pelanggan':   this.renderCustomersTable(); break;
       case 'shift':       ShiftModule.renderShiftCard(); break;
       case 'laporan':     this.renderLaporanView(); break;
+      case 'pengaturan':  ProductsModule.renderCategoryManageList(); break;
     }
   },
 
@@ -453,9 +454,40 @@ const AppMain = {
      =================================================== */
 
   renderLaporanView() {
-    const totalRevenue = STATE.transactions
-      .filter(t => t.total_amount > 0)
+    const paidTrx = STATE.transactions.filter(t => t.total_amount > 0);
+    const totalRevenue = paidTrx.reduce((sum, t) => sum + Number(t.total_amount), 0);
+
+    // FIX: sebelumnya laba cuma diestimasi 40% dari omzet secara asal
+    // (angka tetap, tidak berdasarkan data apapun). Sekarang dihitung
+    // RIIL dari selisih harga jual vs modal (modal_price) tiap item
+    // yang beneran terjual.
+    let totalCost = 0;
+    paidTrx.forEach(t => {
+      (t.items || []).forEach(item => {
+        const product = STATE.products.find(p => String(p.id) === String(item.product_id));
+        totalCost += (Number(product?.modal_price) || 0) * Number(item.quantity || 0);
+      });
+    });
+    const totalProfit = totalRevenue - totalCost;
+    const marginPercent = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0;
+
+    // Perbandingan omzet minggu ini vs minggu lalu
+    const now = new Date();
+    const startOfThisWeek = new Date(now);
+    startOfThisWeek.setHours(0, 0, 0, 0);
+    startOfThisWeek.setDate(now.getDate() - now.getDay());
+    const startOfLastWeek = new Date(startOfThisWeek);
+    startOfLastWeek.setDate(startOfThisWeek.getDate() - 7);
+
+    const thisWeekRevenue = paidTrx
+      .filter(t => new Date(t.created_at) >= startOfThisWeek)
       .reduce((sum, t) => sum + Number(t.total_amount), 0);
+    const lastWeekRevenue = paidTrx
+      .filter(t => { const d = new Date(t.created_at); return d >= startOfLastWeek && d < startOfThisWeek; })
+      .reduce((sum, t) => sum + Number(t.total_amount), 0);
+    const weekChangePercent = lastWeekRevenue > 0
+      ? Math.round(((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue) * 100)
+      : (thisWeekRevenue > 0 ? 100 : 0);
 
     const grid = document.getElementById('reportStatGrid');
     if (grid) {
@@ -466,23 +498,97 @@ const AppMain = {
           <div class="stat-card-label">Total Pendapatan</div>
         </div>
         <div class="stat-card">
+          <div class="stat-card-icon is-orange"><i class="fa-solid fa-box"></i></div>
+          <div class="stat-card-value">${Utils.formatCurrency(totalCost)}</div>
+          <div class="stat-card-label">Total Modal (HPP)</div>
+        </div>
+        <div class="stat-card">
           <div class="stat-card-icon is-green"><i class="fa-solid fa-hand-holding-dollar"></i></div>
-          <div class="stat-card-value">${Utils.formatCurrency(totalRevenue * 0.4)}</div>
-          <div class="stat-card-label">Estimasi Laba Bersih (40%)</div>
+          <div class="stat-card-value">${Utils.formatCurrency(totalProfit)}</div>
+          <div class="stat-card-label">Laba Bersih (margin ${marginPercent}%)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon ${weekChangePercent >= 0 ? 'is-green' : 'is-red'}"><i class="fa-solid fa-calendar-week"></i></div>
+          <div class="stat-card-value">${Utils.formatCurrency(thisWeekRevenue)}</div>
+          <div class="stat-card-label">
+            Omzet Minggu Ini<br>
+            <span class="stat-card-delta ${weekChangePercent >= 0 ? 'is-up' : 'is-down'}">
+              <i class="fa-solid ${weekChangePercent >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'}"></i> ${Math.abs(weekChangePercent)}% vs minggu lalu
+            </span>
+          </div>
         </div>`;
     }
 
     try {
-      const data7Days = Charts.buildSalesTrendData();
-      Charts.renderProfitLoss(data7Days.map(d => ({
-        label: d.label,
-        revenue: d.total,
-        cost: Math.round(d.total * 0.6),
-        profit: Math.round(d.total * 0.4),
-      })));
+      Charts.renderProfitLoss(this._computeDailyProfitData());
     } catch (err) {
       console.warn('[AppMain] Gagal render profit chart:', err);
     }
+
+    this._renderTopProfitProducts(paidTrx);
+  },
+
+  /** Hitung revenue/modal/laba RIIL per hari, 7 hari terakhir */
+  _computeDailyProfitData() {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      days.push(d);
+    }
+
+    return days.map(day => {
+      const dayKey = day.toISOString().slice(0, 10);
+      const dayTrx = STATE.transactions.filter(t =>
+        t.total_amount > 0 && (t.created_at || '').slice(0, 10) === dayKey
+      );
+
+      let revenue = 0, cost = 0;
+      dayTrx.forEach(t => {
+        revenue += Number(t.total_amount) || 0;
+        (t.items || []).forEach(item => {
+          const product = STATE.products.find(p => String(p.id) === String(item.product_id));
+          cost += (Number(product?.modal_price) || 0) * Number(item.quantity || 0);
+        });
+      });
+
+      return {
+        label: Utils.formatDate(day, { day: 'numeric', month: 'short' }),
+        revenue,
+        cost,
+        profit: revenue - cost,
+      };
+    });
+  },
+
+  /** Menampilkan 5 produk dengan kontribusi laba terbesar */
+  _renderTopProfitProducts(paidTrx) {
+    const container = document.getElementById('topProfitList');
+    if (!container) return;
+
+    const profitByProduct = {};
+    paidTrx.forEach(t => {
+      (t.items || []).forEach(item => {
+        const product = STATE.products.find(p => String(p.id) === String(item.product_id));
+        if (!product) return;
+        const margin = (Number(item.price) - (Number(product.modal_price) || 0)) * Number(item.quantity || 0);
+        profitByProduct[product.name] = (profitByProduct[product.name] || 0) + margin;
+      });
+    });
+
+    const sorted = Object.entries(profitByProduct).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    if (sorted.length === 0) {
+      container.innerHTML = `<p style="color: var(--color-text-muted); font-size: var(--font-size-sm);">Belum ada data transaksi yang cukup.</p>`;
+      return;
+    }
+
+    container.innerHTML = sorted.map(([name, profit], i) => `
+      <div class="summary-row">
+        <span>${i + 1}. ${Utils.escapeHtml(name)}</span>
+        <strong style="color: var(--color-success);">${Utils.formatCurrency(profit)}</strong>
+      </div>
+    `).join('');
   },
 
   /* ===================================================
@@ -549,10 +655,14 @@ const AppMain = {
             <span>Kategori</span>
             <select id="pfCategory" class="select-field">
               <option value="">-- Pilih Kategori --</option>
-              ${['Sembako','Minuman','Snack & Makanan','Bumbu Dapur','Kebersihan','Kesehatan','Rokok','Lainnya'].map(c =>
+              ${ProductsModule.getCategories().map(c =>
                 `<option value="${c}" ${(product?.category||'') === c ? 'selected' : ''}>${c}</option>`
               ).join('')}
             </select>
+          </label>
+          <label class="form-field">
+            <span>Tanggal Kadaluarsa (opsional)</span>
+            <input type="date" id="pfExpiryDate" value="${product?.expiry_date || ''}">
           </label>
           <label class="form-field">
             <span>Harga Jual *</span>
@@ -627,6 +737,7 @@ const AppMain = {
         emoji:       document.getElementById('pfEmoji')?.value || '📦',
         barcode:     document.getElementById('pfBarcode')?.value.trim() || '',
         unit:        document.getElementById('pfUnit')?.value || 'pcs',
+        expiry_date: document.getElementById('pfExpiryDate')?.value || null,
       };
 
       if (!data.name) { Utils.showToast('Nama produk wajib diisi', 'error'); return; }
