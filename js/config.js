@@ -411,7 +411,7 @@
             <div class="form-grid">
               <label class="form-field">
                 <span>Supabase URL</span>
-                <input type="text" id="settingSupabaseUrl" placeholder="https://xxxx.supabase.co">
+                <input type="text" id="settingSupabaseUrl" placeholder="https://marelgsluzshkwxwcjod.supabase.co">
               </label>
               <label class="form-field">
                 <span>Supabase Anon Key</span>
