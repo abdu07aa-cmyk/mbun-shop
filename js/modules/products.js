@@ -104,7 +104,7 @@ const ProductsModule = {
     if (!tbody) return;
 
     if (STATE.products.length === 0) {
-      tbody.innerHTML = `<tr class="table-empty-row"><td colspan="7">Belum ada produk. Klik "Tambah Produk" untuk mulai.</td></tr>`;
+      tbody.innerHTML = `<tr class="table-empty-row"><td colspan="8">Belum ada produk. Klik "Tambah Produk" untuk mulai.</td></tr>`;
       return;
     }
 
@@ -120,12 +120,27 @@ const ProductsModule = {
             : `<span class="badge badge-success">${p.stock}</span>`}
         </td>
         <td>${Utils.escapeHtml(p.barcode || '-')}</td>
+        <td>${this._expiryBadge(p.expiry_date)}</td>
         <td>
           <button class="icon-btn" data-edit-product="${p.id}" aria-label="Edit produk"><i class="fa-solid fa-pen"></i></button>
           <button class="icon-btn" data-delete-product="${p.id}" aria-label="Hapus produk"><i class="fa-solid fa-trash"></i></button>
         </td>
       </tr>
     `).join('');
+  },
+
+  /** Menampilkan badge tanggal kadaluarsa dengan warna sesuai urgensi */
+  _expiryBadge(expiryDate) {
+    if (!expiryDate) return '-';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(expiryDate);
+    const daysLeft = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+    const label = Utils.formatDate(target);
+
+    if (daysLeft < 0) return `<span class="badge badge-danger">${label}</span>`;
+    if (daysLeft <= CONFIG.EXPIRY_WARNING_DAYS) return `<span class="badge badge-warning">${label}</span>`;
+    return `<span class="badge badge-info">${label}</span>`;
   },
 
   /* ===================================================
@@ -195,6 +210,72 @@ const ProductsModule = {
   /** Mencari satu produk berdasarkan barcode (dipakai fitur scanner) */
   findByBarcode(barcode) {
     return STATE.products.find(p => p.barcode === barcode);
+  },
+
+  /* ===================================================
+     KELOLA KATEGORI PRODUK
+     Disimpan di localStorage (bukan Supabase) — cuma daftar
+     pilihan kategori, bukan data transaksional.
+     =================================================== */
+
+  getCategories() {
+    try {
+      const stored = localStorage.getItem(CONFIG.STORAGE_KEYS.CATEGORIES);
+      return stored ? JSON.parse(stored) : [...CONFIG.DEFAULT_CATEGORIES];
+    } catch {
+      return [...CONFIG.DEFAULT_CATEGORIES];
+    }
+  },
+
+  saveCategories(categories) {
+    localStorage.setItem(CONFIG.STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+  },
+
+  addCategory(name) {
+    const clean = String(name || '').trim();
+    if (!clean) {
+      Utils.showToast('Nama kategori tidak boleh kosong', 'error');
+      return;
+    }
+    const categories = this.getCategories();
+    if (categories.some(c => c.toLowerCase() === clean.toLowerCase())) {
+      Utils.showToast('Kategori itu sudah ada', 'warning');
+      return;
+    }
+    categories.push(clean);
+    this.saveCategories(categories);
+    this.renderCategoryManageList();
+    Utils.showToast(`Kategori "${clean}" ditambahkan`, 'success');
+  },
+
+  removeCategory(name) {
+    const inUse = STATE.products.some(p => p.category === name);
+    if (inUse) {
+      Utils.showToast('Kategori ini masih dipakai produk, tidak bisa dihapus', 'error');
+      return;
+    }
+    this.saveCategories(this.getCategories().filter(c => c !== name));
+    this.renderCategoryManageList();
+    Utils.showToast('Kategori dihapus', 'success');
+  },
+
+  renderCategoryManageList() {
+    const container = document.getElementById('categoryManageList');
+    if (!container) return;
+
+    const categories = this.getCategories();
+    container.innerHTML = categories.map(c => `
+      <div style="display:flex; align-items:center; justify-content:space-between; padding: var(--space-2) var(--space-3); background: var(--color-surface-alt); border-radius: var(--radius-sm);">
+        <span style="font-size: var(--font-size-sm);">${Utils.escapeHtml(c)}</span>
+        <button class="icon-btn" style="width:28px; height:28px;" data-remove-category="${Utils.escapeHtml(c)}" aria-label="Hapus kategori">
+          <i class="fa-solid fa-xmark" style="font-size:11px;"></i>
+        </button>
+      </div>
+    `).join('');
+
+    Utils.qsa('[data-remove-category]').forEach(btn => {
+      btn.addEventListener('click', () => this.removeCategory(btn.dataset.removeCategory));
+    });
   },
 
   /* ===================================================
