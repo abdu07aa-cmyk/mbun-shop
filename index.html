@@ -19,14 +19,14 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <!-- ===== CSS MODULAR (urutan penting: variables harus paling awal) ===== -->
-  <link rel="stylesheet" href="css/variables.css?v=20260706f">
-  <link rel="stylesheet" href="css/base.css?v=20260706f">
-  <link rel="stylesheet" href="css/components.css?v=20260706f">
-  <link rel="stylesheet" href="css/layout.css?v=20260706f">
-  <link rel="stylesheet" href="css/modals.css?v=20260706f">
-  <link rel="stylesheet" href="css/animations.css?v=20260706f">
-  <link rel="stylesheet" href="css/responsive.css?v=20260706f">
-  <link rel="stylesheet" href="css/print.css?v=20260706f" media="print">
+  <link rel="stylesheet" href="css/variables.css?v=20260706g">
+  <link rel="stylesheet" href="css/base.css?v=20260706g">
+  <link rel="stylesheet" href="css/components.css?v=20260706g">
+  <link rel="stylesheet" href="css/layout.css?v=20260706g">
+  <link rel="stylesheet" href="css/modals.css?v=20260706g">
+  <link rel="stylesheet" href="css/animations.css?v=20260706g">
+  <link rel="stylesheet" href="css/responsive.css?v=20260706g">
+  <link rel="stylesheet" href="css/print.css?v=20260706g" media="print">
 </head>
 <body data-theme="light">
 
@@ -278,7 +278,7 @@
               <table class="data-table" id="productsTable">
                 <thead>
                   <tr>
-                    <th></th><th>Nama</th><th>Kategori</th><th>Harga</th><th>Stok</th><th>Barcode</th><th>Aksi</th>
+                    <th></th><th>Nama</th><th>Kategori</th><th>Harga</th><th>Stok</th><th>Barcode</th><th>Kadaluarsa</th><th>Aksi</th>
                   </tr>
                 </thead>
                 <tbody><!-- diisi dinamis --></tbody>
@@ -392,6 +392,10 @@
           <div class="card chart-card">
             <canvas id="profitLossChart"></canvas>
           </div>
+          <div class="card">
+            <div class="card-header"><h3>Produk Paling Untung</h3></div>
+            <div id="topProfitList"></div>
+          </div>
         </section>
 
         <!-- ====== VIEW: PENGATURAN ====== -->
@@ -418,6 +422,18 @@
           </div>
 
           <div class="card">
+            <h3>Kelola Kategori Produk</h3>
+            <p class="view-subtitle" style="margin-bottom: var(--space-4);">
+              Kategori yang muncul di form Tambah/Edit Produk.
+            </p>
+            <div id="categoryManageList" style="display:flex; flex-direction:column; gap: var(--space-2); margin-bottom: var(--space-4);"></div>
+            <div style="display:flex; gap: var(--space-2);">
+              <input type="text" id="newCategoryInput" placeholder="Nama kategori baru" style="flex:1;">
+              <button class="btn btn-secondary" id="addCategoryBtn"><i class="fa-solid fa-plus"></i> Tambah</button>
+            </div>
+          </div>
+
+          <div class="card">
             <h3>Keamanan</h3>
             <p class="view-subtitle" style="margin-bottom: var(--space-4);">
               PIN ini akan diminta setiap kali ada yang mencoba menghapus transaksi/produk atau memberi diskon — mencegah penyalahgunaan oleh yang tidak berwenang.
@@ -429,6 +445,16 @@
               </label>
             </div>
             <button class="btn btn-primary" id="savePinBtn">Simpan PIN</button>
+          </div>
+
+          <div class="card">
+            <h3>Cadangan Data</h3>
+            <p class="view-subtitle" style="margin-bottom: var(--space-4);">
+              Download semua data (produk, pelanggan, transaksi) sebagai 1 file JSON, buat jaga-jaga kalau perlu dipulihkan nanti.
+            </p>
+            <button class="btn btn-secondary btn-block" id="backupDataBtn">
+              <i class="fa-solid fa-cloud-arrow-down"></i> Download Cadangan Data
+            </button>
           </div>
         </section>
 
@@ -488,30 +514,31 @@
   <!-- ===================================================== -->
   <!-- APP SCRIPTS (urutan dependensi penting)               -->
   <!-- ===================================================== -->
-  <script src="js/config.js?v=20260706f"></script>
-  <script src="js/state.js?v=20260706f"></script>
-  <script src="js/utils.js?v=20260706f"></script>
-  <script src="js/api.js?v=20260706f"></script>
-  <script src="js/charts.js?v=20260706f"></script>
+  <script src="js/config.js?v=20260706g"></script>
+  <script src="js/state.js?v=20260706g"></script>
+  <script src="js/utils.js?v=20260706g"></script>
+  <script src="js/api.js?v=20260706g"></script>
+  <script src="js/charts.js?v=20260706g"></script>
 
-  <script src="js/modules/products.js?v=20260706f"></script>
-  <script src="js/modules/cart.js?v=20260706f"></script>
-  <script src="js/modules/payment.js?v=20260706f"></script>
-  <script src="js/modules/stock.js?v=20260706f"></script>
-  <script src="js/modules/ai.js?v=20260706f"></script>
-  <script src="js/modules/auth.js?v=20260706f"></script>
+  <script src="js/modules/products.js?v=20260706g"></script>
+  <script src="js/modules/cart.js?v=20260706g"></script>
+  <script src="js/modules/payment.js?v=20260706g"></script>
+  <script src="js/modules/stock.js?v=20260706g"></script>
+  <script src="js/modules/ai.js?v=20260706g"></script>
+  <script src="js/modules/auth.js?v=20260706g"></script>
 
-  <script src="js/features/export.js?v=20260706f"></script>
-  <script src="js/features/offline.js?v=20260706f"></script>
-  <script src="js/features/barcode.js?v=20260706f"></script>
-  <script src="js/features/hold-cart.js?v=20260706f"></script>
-  <script src="js/features/notifications.js?v=20260706f"></script>
-  <script src="js/features/shift.js?v=20260706f"></script>
-  <script src="js/features/split-payment.js?v=20260706f"></script>
-  <script src="js/features/returns.js?v=20260706f"></script>
+  <script src="js/features/export.js?v=20260706g"></script>
+  <script src="js/features/offline.js?v=20260706g"></script>
+  <script src="js/features/barcode.js?v=20260706g"></script>
+  <script src="js/features/hold-cart.js?v=20260706g"></script>
+  <script src="js/features/notifications.js?v=20260706g"></script>
+  <script src="js/features/backup.js?v=20260706g"></script>
+  <script src="js/features/shift.js?v=20260706g"></script>
+  <script src="js/features/split-payment.js?v=20260706g"></script>
+  <script src="js/features/returns.js?v=20260706g"></script>
 
-  <script src="js/emoji-picker.js?v=20260706f"></script>
-  <script src="js/events.js?v=20260706f"></script>
-  <script src="js/main.js?v=20260706f"></script>
+  <script src="js/emoji-picker.js?v=20260706g"></script>
+  <script src="js/events.js?v=20260706g"></script>
+  <script src="js/main.js?v=20260706g"></script>
 </body>
 </html>
