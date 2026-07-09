@@ -88,6 +88,7 @@ const EventsModule = {
     this._bindTopbar();
     this._bindKasirView();
     this._bindProdukView();
+    this._bindPengaturanView();
     this._bindTransaksiView();
     this._bindStokView();
     this._bindPelangganView();
@@ -266,6 +267,30 @@ const EventsModule = {
     // Ekspor produk
     document.getElementById('exportProductsBtn')?.addEventListener('click', () => {
       ExportModule.exportProducts();
+    });
+  },
+
+  /* ===================================================
+     VIEW PENGATURAN
+     =================================================== */
+  _bindPengaturanView() {
+    // Tambah kategori produk baru
+    document.getElementById('addCategoryBtn')?.addEventListener('click', () => {
+      const input = document.getElementById('newCategoryInput');
+      ProductsModule.addCategory(input?.value);
+      if (input) input.value = '';
+    });
+
+    document.getElementById('newCategoryInput')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        ProductsModule.addCategory(e.target.value);
+        e.target.value = '';
+      }
+    });
+
+    // Download cadangan semua data
+    document.getElementById('backupDataBtn')?.addEventListener('click', () => {
+      BackupModule.downloadBackup();
     });
   },
 
