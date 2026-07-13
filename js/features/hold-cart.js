@@ -1,11 +1,17 @@
 /* =====================================================
-   WARUNGKITA PRO MAX — FEATURES/HOLD-CART.JS
+   MBUN COLLECTION — FEATURES/HOLD-CART.JS
    Fitur "Tahan Keranjang" (Hold Cart): kasir bisa menahan
    transaksi yang sedang berjalan (mis. pelanggan masih
    mencari barang tambahan) tanpa kehilangan progres, lalu
    melayani pelanggan lain, dan melanjutkan keranjang yang
-   ditahan kapan saja. Disimpan di localStorage agar tetap
-   ada walau halaman di-refresh.
+   ditahan kapan saja.
+
+   FIX: sebelumnya disimpan di localStorage, yang artinya
+   HANYA bisa diakses dari device/browser yang sama persis
+   (keranjang ditahan di PC tidak akan kelihatan di HP).
+   Sekarang disimpan ke Supabase (tabel held_carts) supaya
+   bisa lintas device — ditahan di PC, dilanjutkan dari HP,
+   atau sebaliknya.
    ===================================================== */
 
 const HoldCartModule = {
@@ -14,26 +20,25 @@ const HoldCartModule = {
      =================================================== */
 
   /** Menahan keranjang aktif, lalu mengosongkan keranjang kerja saat ini */
-  holdCurrentCart() {
+  async holdCurrentCart() {
     if (STATE.cart.length === 0) {
       Utils.showToast('Keranjang masih kosong, tidak ada yang bisa ditahan', 'warning');
       return;
     }
 
-    const held = {
-      id: Utils.generateId('HOLD'),
+    const payload = {
       label: STATE.activeCustomer?.name || `Pelanggan ${STATE.heldCarts.length + 1}`,
-      cart: Utils.deepClone(STATE.cart),
-      discount: STATE.activeDiscount ? Utils.deepClone(STATE.activeDiscount) : null,
-      customer: STATE.activeCustomer ? Utils.deepClone(STATE.activeCustomer) : null,
-      heldAt: new Date().toISOString(),
+      cart: STATE.cart,
+      discount: STATE.activeDiscount || null,
+      customer: STATE.activeCustomer || null,
     };
 
-    STATE.heldCarts.push(held);
-    this._saveToLocalStorage();
+    const [saved] = await API.insert(CONFIG.TABLES.HELD_CARTS, payload);
+    STATE.heldCarts.push(saved || { ...payload, id: Utils.generateId('HOLD'), created_at: new Date().toISOString() });
 
     STATE.resetCart();
-    Utils.showToast(`Keranjang ditahan sebagai "${held.label}"`, 'success');
+    Utils.showToast(`Keranjang ditahan sebagai "${payload.label}"`, 'success');
+    EventsModule._syncHeldCartsBadge?.();
   },
 
   /* ===================================================
@@ -46,8 +51,8 @@ const HoldCartModule = {
    * diminta konfirmasi karena akan ditimpa.
    * @param {string} holdId
    */
-  resumeCart(holdId) {
-    const held = STATE.heldCarts.find(h => h.id === holdId);
+  async resumeCart(holdId) {
+    const held = STATE.heldCarts.find(h => String(h.id) === String(holdId));
     if (!held) return;
 
     if (STATE.cart.length > 0) {
@@ -60,7 +65,7 @@ const HoldCartModule = {
     STATE.activeCustomer = held.customer ? Utils.deepClone(held.customer) : null;
     STATE.notify('cart');
 
-    this._removeHeld(holdId);
+    await this._removeHeld(holdId);
     Utils.showToast(`Keranjang "${held.label}" dilanjutkan`, 'success');
   },
 
@@ -69,37 +74,33 @@ const HoldCartModule = {
    * (mis. pelanggan batal jadi membeli).
    * @param {string} holdId
    */
-  discardHeld(holdId) {
-    const held = STATE.heldCarts.find(h => h.id === holdId);
+  async discardHeld(holdId) {
+    const held = STATE.heldCarts.find(h => String(h.id) === String(holdId));
     if (!held) return;
 
     const confirmed = window.confirm(`Hapus keranjang yang ditahan "${held.label}"? Tindakan ini tidak bisa dibatalkan.`);
     if (!confirmed) return;
 
-    this._removeHeld(holdId);
+    await this._removeHeld(holdId);
     Utils.showToast('Keranjang yang ditahan telah dihapus', 'info');
   },
 
-  _removeHeld(holdId) {
-    STATE.heldCarts = STATE.heldCarts.filter(h => h.id !== holdId);
-    this._saveToLocalStorage();
+  async _removeHeld(holdId) {
+    STATE.heldCarts = STATE.heldCarts.filter(h => String(h.id) !== String(holdId));
+    await API.remove(CONFIG.TABLES.HELD_CARTS, { id: `eq.${holdId}` });
     this._renderHeldListIfOpen();
     EventsModule._syncHeldCartsBadge?.();
   },
 
   /* ===================================================
-     PERSISTENSI LOKAL
+     MUAT DARI SUPABASE
      =================================================== */
 
-  _saveToLocalStorage() {
-    localStorage.setItem(CONFIG.STORAGE_KEYS.HELD_CARTS, JSON.stringify(STATE.heldCarts));
-  },
-
-  /** Memuat keranjang yang ditahan dari localStorage saat aplikasi dibuka */
-  loadFromLocalStorage() {
+  /** Memuat semua keranjang yang ditahan dari server (lintas device) */
+  async loadHeldCarts() {
     try {
-      const raw = localStorage.getItem(CONFIG.STORAGE_KEYS.HELD_CARTS);
-      STATE.heldCarts = raw ? JSON.parse(raw) : [];
+      const data = await API.fetchAll(CONFIG.TABLES.HELD_CARTS, { order: 'created_at.desc' });
+      STATE.heldCarts = data;
     } catch (err) {
       console.error('[HoldCart] Gagal memuat keranjang tertahan:', err);
       STATE.heldCarts = [];
@@ -126,12 +127,12 @@ const HoldCartModule = {
     }
 
     return STATE.heldCarts.map(h => {
-      const total = h.cart.reduce((sum, item) => sum + item.subtotal, 0);
+      const total = (h.cart || []).reduce((sum, item) => sum + item.subtotal, 0);
       return `
         <div style="display:flex; align-items:center; justify-content:space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border);">
           <div>
             <strong style="font-size: var(--font-size-sm);">${Utils.escapeHtml(h.label)}</strong><br>
-            <small>${h.cart.length} item • ${Utils.formatCurrency(total)} • ${Utils.formatRelativeTime(h.heldAt)}</small>
+            <small>${(h.cart || []).length} item &middot; ${Utils.formatCurrency(total)} &middot; ${Utils.formatRelativeTime(h.created_at)}</small>
           </div>
           <div style="display:flex; gap: var(--space-2);">
             <button class="btn btn-primary" style="padding: var(--space-2) var(--space-3);" data-resume-hold="${h.id}">Lanjutkan</button>
@@ -164,8 +165,8 @@ const HoldCartModule = {
     }
   },
 
-  init() {
-    this.loadFromLocalStorage();
+  async init() {
+    await this.loadHeldCarts();
     EventsModule._syncHeldCartsBadge?.();
   },
 };
