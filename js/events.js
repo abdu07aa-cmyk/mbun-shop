@@ -220,7 +220,6 @@ const EventsModule = {
     // Tahan keranjang
     document.getElementById('holdCartBtn')?.addEventListener('click', () => {
       HoldCartModule.holdCurrentCart();
-      this._syncHeldCartsBadge();
     });
 
     // Lihat daftar keranjang yang ditahan
