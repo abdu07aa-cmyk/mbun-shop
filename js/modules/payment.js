@@ -330,7 +330,9 @@ const PaymentModule = {
 
     return [
       `*${CONFIG.STORE.NAME}*`,
+      CONFIG.STORE.TAGLINE,
       CONFIG.STORE.ADDRESS,
+      `Telp: ${CONFIG.STORE.PHONE}`,
       Utils.formatDateTime(t.created_at || new Date()),
       '------------------------------',
       itemLines,
@@ -353,7 +355,9 @@ const PaymentModule = {
       <div class="receipt">
         <div class="receipt-header">
           <strong>${CONFIG.STORE.NAME}</strong><br>
+          <small>${CONFIG.STORE.TAGLINE}</small><br>
           <small>${CONFIG.STORE.ADDRESS}</small><br>
+          <small>Telp: ${CONFIG.STORE.PHONE}</small><br>
           <small>${Utils.formatDateTime(t.created_at || new Date())}</small>
         </div>
         ${itemRows}
