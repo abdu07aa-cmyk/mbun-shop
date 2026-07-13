@@ -28,6 +28,7 @@ const CONFIG = {
     SHIFTS: 'shifts',
     CUSTOMERS: 'customers',
     STOCK_MOVEMENTS: 'stock_movements',
+    HELD_CARTS: 'held_carts',
   },
 
   /* ---------- INFORMASI TOKO ---------- */
@@ -35,7 +36,7 @@ const CONFIG = {
     NAME: 'MBUN COLLECTION',
     TAGLINE: 'Belanja Hemat, Hidup Nikmat',
     ADDRESS: 'Belanja Hemat, Hidup Nikmat',
-    PHONE: '0897-3488-963',
+    PHONE: '0812-3456-7890',
   },
 
   /* ---------- METODE PEMBAYARAN ---------- */
