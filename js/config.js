@@ -35,8 +35,8 @@ const CONFIG = {
   STORE: {
     NAME: 'MBUN COLLECTION',
     TAGLINE: 'Belanja Hemat, Hidup Nikmat',
-    ADDRESS: 'Belanja Hemat, Hidup Nikmat',
-    PHONE: '0812-3456-7890',
+    ADDRESS: 'Jl. Al-Huda, Kp. Rawa Sapi, Jatimulya, Tambun Selatan',
+    PHONE: '0897-3488-963',
   },
 
   /* ---------- METODE PEMBAYARAN ---------- */
