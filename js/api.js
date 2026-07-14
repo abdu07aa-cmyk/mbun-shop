@@ -256,4 +256,50 @@ const API = {
       return false;
     }
   },
+
+  /* ===================================================
+     UPLOAD FOTO PRODUK (Supabase Storage)
+     Foto disimpan di Storage (bukan di kolom database),
+     supaya tabel produk tetap ringan & cepat dimuat. Yang
+     disimpan di database cuma URL-nya (text pendek).
+     =================================================== */
+
+  /**
+   * Upload 1 file/blob gambar ke bucket Supabase Storage, dan
+   * mengembalikan URL publik-nya.
+   * @param {Blob} blob - file gambar (idealnya sudah dikompres)
+   * @param {string} filename - nama file unik, mis. "produk_123.jpg"
+   * @returns {Promise<string|null>} URL publik, atau null kalau gagal
+   */
+  async uploadProductImage(blob, filename) {
+    if (!this.isConfigured()) {
+      Utils.showToast('Upload foto butuh koneksi Supabase aktif', 'error');
+      return null;
+    }
+    try {
+      const bucket = CONFIG.STORAGE_BUCKET_PRODUCT_IMAGES;
+      const res = await fetch(`${CONFIG.SUPABASE_URL}/storage/v1/object/${bucket}/${filename}`, {
+        method: 'POST',
+        headers: {
+          'apikey': CONFIG.SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${CONFIG.SUPABASE_ANON_KEY}`,
+          'Content-Type': blob.type || 'image/jpeg',
+        },
+        body: blob,
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        console.error('[API] Gagal upload foto produk:', errBody);
+        Utils.showToast(`Gagal upload foto: ${errBody?.message || res.status}`, 'error');
+        return null;
+      }
+
+      return `${CONFIG.SUPABASE_URL}/storage/v1/object/public/${bucket}/${filename}`;
+    } catch (err) {
+      console.error('[API] Error upload foto produk:', err);
+      Utils.showToast('Gagal upload foto, cek koneksi internet', 'error');
+      return null;
+    }
+  },
 };
