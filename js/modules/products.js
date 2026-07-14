@@ -41,21 +41,31 @@ const ProductsModule = {
     grid.innerHTML = filtered.map(p => this._productCardHtml(p)).join('');
   },
 
-  /** Template kartu produk untuk grid Kasir */
+  /** Template kartu produk untuk grid Kasir — mode potret (foto penuh di atas) */
   _productCardHtml(product) {
     const isOutOfStock = product.stock <= 0;
+
+    const imageBlock = product.image_url
+      ? `<img src="${product.image_url}" alt="" loading="lazy" style="width:100%; aspect-ratio: 3/4; object-fit:cover; display:block;">`
+      : `<div style="width:100%; aspect-ratio: 3/4; display:flex; align-items:center; justify-content:center; font-size:40px; background: var(--color-surface-alt);">${product.emoji || '📦'}</div>`;
+
     return `
       <button class="card product-card" data-product-id="${product.id}" ${isOutOfStock ? 'disabled' : ''}
-        style="padding: var(--space-4); text-align: left; cursor: ${isOutOfStock ? 'not-allowed' : 'pointer'}; opacity: ${isOutOfStock ? 0.5 : 1}; margin-bottom: 0;">
-        <div style="margin-bottom: var(--space-2);">${Utils.productIconHtml(product, 48)}</div>
-        <div style="font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); margin-bottom: 2px;">
-          ${Utils.escapeHtml(product.name)}
+        style="padding:0; overflow:hidden; text-align: left; cursor: ${isOutOfStock ? 'not-allowed' : 'pointer'}; opacity: ${isOutOfStock ? 0.5 : 1}; margin-bottom: 0; display:flex; flex-direction:column;">
+        <div style="position:relative;">
+          ${imageBlock}
+          ${isOutOfStock ? `<div style="position:absolute; inset:0; background:rgba(15,23,42,0.55); display:flex; align-items:center; justify-content:center;"><span class="badge badge-danger">Stok Habis</span></div>` : ''}
         </div>
-        <div style="color: var(--color-primary); font-weight: var(--font-weight-bold); font-size: var(--font-size-sm);">
-          ${Utils.formatCurrency(product.price)}
-        </div>
-        <div style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 4px;">
-          ${isOutOfStock ? 'Stok habis' : `Stok: ${product.stock}`}
+        <div style="padding: var(--space-3);">
+          <div style="font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); margin-bottom: 2px; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; min-height: 2.6em;">
+            ${Utils.escapeHtml(product.name)}
+          </div>
+          <div style="color: var(--color-primary); font-weight: var(--font-weight-bold); font-size: var(--font-size-sm);">
+            ${Utils.formatCurrency(product.price)}
+          </div>
+          <div style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 4px;">
+            ${isOutOfStock ? 'Stok habis' : `Stok: ${product.stock}`}
+          </div>
         </div>
       </button>`;
   },
