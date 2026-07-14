@@ -610,10 +610,35 @@ const AppMain = {
       title: isEdit ? 'Edit Produk: ' + (product?.name || '') : 'Tambah Produk Baru',
       size: 'lg',
       bodyHtml: `
-        <!-- ===== EMOJI PICKER ===== -->
+        <!-- ===== FOTO PRODUK ===== -->
         <div style="margin-bottom: var(--space-5);">
           <span style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-secondary); display:block; margin-bottom: var(--space-2);">
-            Pilih Ikon Produk
+            Foto Produk
+          </span>
+          <div style="display:flex; align-items:center; gap: var(--space-3);">
+            <div id="productImagePreview" style="width:72px; height:72px; border-radius: var(--radius-md); overflow:hidden; background: var(--color-surface-alt); border: 2px solid var(--color-border); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+              ${product?.image_url
+                ? `<img src="${product.image_url}" alt="" style="width:100%; height:100%; object-fit:cover;">`
+                : `<span style="font-size:36px;">${currentEmoji}</span>`}
+            </div>
+            <div style="flex:1;">
+              <input type="file" id="pfImageFile" accept="image/*" style="display:none;">
+              <button type="button" class="btn btn-secondary" id="pfImageUploadBtn">
+                <i class="fa-solid fa-camera"></i> ${product?.image_url ? 'Ganti Foto' : 'Upload Foto'}
+              </button>
+              ${product?.image_url ? `<button type="button" class="link-btn-danger" id="pfImageRemoveBtn" style="margin-left: var(--space-3);">Hapus Foto</button>` : ''}
+              <p style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: var(--space-2);">
+                Kalau belum ada foto, ikon emoji di bawah dipakai sebagai gantinya.
+              </p>
+            </div>
+          </div>
+          <input type="hidden" id="pfImageUrl" value="${product?.image_url || ''}">
+        </div>
+
+        <!-- ===== EMOJI PICKER (fallback kalau belum ada foto) ===== -->
+        <div style="margin-bottom: var(--space-5);">
+          <span style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-secondary); display:block; margin-bottom: var(--space-2);">
+            Ikon Emoji (fallback kalau belum ada foto)
           </span>
 
           <!-- Preview emoji terpilih -->
@@ -706,6 +731,55 @@ const AppMain = {
     // Render emoji picker
     EmojiPicker.render('all', currentEmoji);
 
+    // ===== UPLOAD FOTO PRODUK =====
+    const imageFileInput = document.getElementById('pfImageFile');
+    const imageUploadBtn = document.getElementById('pfImageUploadBtn');
+    const imagePreview = document.getElementById('productImagePreview');
+    const imageUrlField = document.getElementById('pfImageUrl');
+
+    imageUploadBtn?.addEventListener('click', () => imageFileInput?.click());
+
+    imageFileInput?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const originalLabel = imageUploadBtn.innerHTML;
+      imageUploadBtn.disabled = true;
+      imageUploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mengompres...';
+
+      try {
+        // Dikecilkan dulu (maks 400px, kualitas 75%) supaya upload cepat
+        // dan aplikasi tetap ringan, tapi masih jelas buat ikon produk.
+        const compressedBlob = await Utils.compressImage(file, 400, 0.75);
+
+        imageUploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mengupload...';
+        const filename = `produk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+        const url = await API.uploadProductImage(compressedBlob, filename);
+
+        if (url) {
+          if (imageUrlField) imageUrlField.value = url;
+          if (imagePreview) imagePreview.innerHTML = `<img src="${url}" alt="" style="width:100%; height:100%; object-fit:cover;">`;
+          imageUploadBtn.innerHTML = '<i class="fa-solid fa-camera"></i> Ganti Foto';
+          Utils.showToast('Foto berhasil diupload', 'success');
+        } else {
+          imageUploadBtn.innerHTML = originalLabel;
+        }
+      } catch (err) {
+        console.error('[Produk] Gagal proses foto:', err);
+        Utils.showToast('Gagal memproses foto: ' + err.message, 'error');
+        imageUploadBtn.innerHTML = originalLabel;
+      } finally {
+        imageUploadBtn.disabled = false;
+        imageFileInput.value = '';
+      }
+    });
+
+    document.getElementById('pfImageRemoveBtn')?.addEventListener('click', () => {
+      if (imageUrlField) imageUrlField.value = '';
+      if (imagePreview) imagePreview.innerHTML = `<span style="font-size:36px;">${document.getElementById('emojiPreview')?.textContent.trim() || '📦'}</span>`;
+      Utils.showToast('Foto dihapus dari form (belum disimpan sampai kamu tekan Simpan)', 'info');
+    });
+
     // Scan barcode untuk isi field barcode form produk
     document.getElementById('scanProductBarcodeBtn')?.addEventListener('click', () => {
       BarcodeModule.openScannerModal({
@@ -738,6 +812,7 @@ const AppMain = {
         barcode:     document.getElementById('pfBarcode')?.value.trim() || '',
         unit:        document.getElementById('pfUnit')?.value || 'pcs',
         expiry_date: document.getElementById('pfExpiryDate')?.value || null,
+        image_url:   document.getElementById('pfImageUrl')?.value || null,
       };
 
       if (!data.name) { Utils.showToast('Nama produk wajib diisi', 'error'); return; }
