@@ -267,6 +267,20 @@
   gap: var(--space-4);
 }
 
+/* FIX: tanpa ini, CSS Grid tidak mau menyusutkan kolom lebih kecil
+   dari ukuran ASLI (intrinsic size) foto produk di dalamnya — jadi
+   walau grid-template-columns sudah diatur 3 kolom, browser tetap
+   memaksa tiap kolom selebar foto aslinya dan bikin grid meluber
+   ke samping (cuma 1 kartu yang kelihatan di layar HP). min-width:0
+   mengizinkan kolom menyusut sesuai lebar yang sudah ditentukan. */
+.product-card {
+  min-width: 0;
+}
+.product-card img {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .pos-cart {
   position: sticky;
   top: calc(var(--topbar-height) + var(--space-5));
