@@ -27,7 +27,7 @@ const StockModule = {
 
     tbody.innerHTML = sorted.map(p => `
       <tr>
-        <td>${p.emoji || '📦'} ${Utils.escapeHtml(p.name)}</td>
+        <td style="display:flex; align-items:center; gap: var(--space-2);">${Utils.productIconHtml(p, 24)} ${Utils.escapeHtml(p.name)}</td>
         <td>${Utils.formatNumber(p.stock)}</td>
         <td>${this._statusBadge(p)}</td>
         <td style="display:flex; gap: var(--space-2); flex-wrap:wrap;">
