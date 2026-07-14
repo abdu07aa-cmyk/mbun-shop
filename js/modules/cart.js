@@ -47,6 +47,7 @@ const CartModule = {
         name: product.name,
         price: product.price,
         emoji: product.emoji || '📦',
+        image_url: product.image_url || null,
         qty: 1,
         subtotal: product.price,
       });
@@ -176,7 +177,7 @@ const CartModule = {
     return `
       <div class="cart-item" data-product-id="${item.productId}"
         style="display:flex; align-items:center; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border);">
-        <div style="font-size: 24px;">${item.emoji}</div>
+        <div>${Utils.productIconHtml(item, 24)}</div>
         <div style="flex:1; min-width:0;">
           <div style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
             ${Utils.escapeHtml(item.name)}
