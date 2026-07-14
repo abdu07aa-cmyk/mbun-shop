@@ -281,6 +281,70 @@ const Utils = {
     return Array.from(scope.querySelectorAll(selector));
   },
 
+  /* ---------- KOMPRESI GAMBAR (untuk foto produk) ---------- */
+  /**
+   * Mengecilkan & mengompres gambar sebelum diupload, supaya ukuran
+   * file kecil (cepat dimuat, aplikasi tetap ringan) tapi masih jelas
+   * dipakai sebagai ikon/thumbnail produk.
+   * @param {File} file - file gambar asli dari input HP
+   * @param {number} maxDimension - ukuran sisi terpanjang maksimal (px)
+   * @param {number} quality - kualitas JPEG (0-1)
+   * @returns {Promise<Blob>}
+   */
+  compressImage(file, maxDimension = 400, quality = 0.75) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = (e) => { img.src = e.target.result; };
+      reader.onerror = () => reject(new Error('Gagal membaca file gambar'));
+
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDimension) {
+          height = Math.round(height * (maxDimension / width));
+          width = maxDimension;
+        } else if (height > maxDimension) {
+          width = Math.round(width * (maxDimension / height));
+          height = maxDimension;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff'; // latar putih (jaga-jaga kalau PNG transparan)
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => blob ? resolve(blob) : reject(new Error('Gagal mengompres gambar')),
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = () => reject(new Error('File bukan gambar yang valid'));
+
+      reader.readAsDataURL(file);
+    });
+  },
+
+  /* ---------- IKON PRODUK (foto asli atau emoji sebagai fallback) ---------- */
+  /**
+   * Menghasilkan HTML ikon produk — pakai foto asli (image_url) kalau
+   * ada, kalau tidak fallback ke emoji. Dipakai konsisten di semua
+   * tempat yang menampilkan ikon produk (grid Kasir, tabel Produk,
+   * keranjang, tabel Stok, dll) supaya seragam.
+   * @param {object} product - { image_url, emoji }
+   * @param {number} sizePx - ukuran kotak ikon dalam pixel
+   */
+  productIconHtml(product, sizePx = 32) {
+    if (product?.image_url) {
+      return `<img src="${product.image_url}" alt="" loading="lazy" style="width:${sizePx}px; height:${sizePx}px; object-fit:cover; border-radius: var(--radius-sm); flex-shrink:0;">`;
+    }
+    return `<div style="width:${sizePx}px; height:${sizePx}px; display:flex; align-items:center; justify-content:center; font-size:${Math.round(sizePx * 0.7)}px; flex-shrink:0;">${product?.emoji || '📦'}</div>`;
+  },
+
   /* ---------- DOWNLOAD FILE (dipakai oleh fitur export) ---------- */
   /**
    * Memicu unduhan file dari konten string di browser.
