@@ -47,7 +47,7 @@ const ProductsModule = {
     return `
       <button class="card product-card" data-product-id="${product.id}" ${isOutOfStock ? 'disabled' : ''}
         style="padding: var(--space-4); text-align: left; cursor: ${isOutOfStock ? 'not-allowed' : 'pointer'}; opacity: ${isOutOfStock ? 0.5 : 1}; margin-bottom: 0;">
-        <div style="font-size: 32px; margin-bottom: var(--space-2);">${product.emoji || '📦'}</div>
+        <div style="margin-bottom: var(--space-2);">${Utils.productIconHtml(product, 48)}</div>
         <div style="font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); margin-bottom: 2px;">
           ${Utils.escapeHtml(product.name)}
         </div>
@@ -110,7 +110,7 @@ const ProductsModule = {
 
     tbody.innerHTML = STATE.products.map(p => `
       <tr>
-        <td style="font-size: 20px;">${p.emoji || '📦'}</td>
+        <td>${Utils.productIconHtml(p, 32)}</td>
         <td>${Utils.escapeHtml(p.name)}</td>
         <td>${Utils.escapeHtml(p.category || '-')}</td>
         <td>${Utils.formatCurrency(p.price)}</td>
@@ -163,6 +163,7 @@ const ProductsModule = {
       price: Number(productData.price),
       stock: Number(productData.stock) || 0,
       emoji: productData.emoji || '📦',
+      image_url: productData.image_url || null,
       barcode: productData.barcode || '',
       modal_price: Number(productData.modal_price) || 0,
     });
