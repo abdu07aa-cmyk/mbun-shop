@@ -34,7 +34,7 @@ const CONFIG = {
   /* ---------- INFORMASI TOKO ---------- */
   STORE: {
     NAME: 'MBUN COLLECTION',
-    TAGLINE: '',
+    TAGLINE: 'Belanja Hemat, Hidup Nikmat',
     ADDRESS: 'Jl. Al-Huda, Kp. Rawa Sapi, Jatimulya, Tambun Selatan',
     PHONE: '0897-3488-963',
   },
@@ -89,6 +89,9 @@ const CONFIG = {
 
   /* ---------- AMBANG BATAS PRODUK MENDEKATI KADALUARSA (dalam hari) ---------- */
   EXPIRY_WARNING_DAYS: 7,
+
+  /* ---------- SUPABASE STORAGE (untuk foto produk) ---------- */
+  STORAGE_BUCKET_PRODUCT_IMAGES: 'product-images',
 
   /* ---------- FLAG FITUR (untuk mengaktifkan/menonaktifkan fitur secara cepat) ---------- */
   FEATURES: {
