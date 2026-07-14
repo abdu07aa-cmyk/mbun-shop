@@ -34,7 +34,7 @@ const CONFIG = {
   /* ---------- INFORMASI TOKO ---------- */
   STORE: {
     NAME: 'MBUN COLLECTION',
-    TAGLINE: 'Belanja Hemat, Hidup Nikmat',
+    TAGLINE: '',
     ADDRESS: 'Jl. Al-Huda, Kp. Rawa Sapi, Jatimulya, Tambun Selatan',
     PHONE: '0897-3488-963',
   },
