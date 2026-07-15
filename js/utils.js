@@ -1,201 +1,366 @@
 /* =====================================================
    WARUNGKITA PRO MAX — UTILS.JS
-   Fungsi-fungsi utilitas yang dipakai di seluruh aplikasi:
-   format angka, tanggal, mata uang, sanitasi HTML, debounce,
-   notifikasi (toast), dsb. Supaya modul-modul lain tidak
-   perlu mengulang kode serupa.
+   Kumpulan fungsi helper murni (pure function) yang
+   dipakai di berbagai modul: format angka/tanggal,
+   toast notification, debounce, generate ID, dsb.
+   Tidak ada modul lain yang di-import di sini supaya
+   utils.js bisa dipakai paling awal tanpa dependensi.
    ===================================================== */
 
 const Utils = {
-  /* ============== FORMATTING ============== */
-
+  /* ---------- FORMAT MATA UANG ---------- */
   /**
-   * Format angka menjadi mata uang Rupiah (Rp 1.000.000)
+   * Format angka menjadi format Rupiah, mis. 15000 -> "Rp 15.000"
+   * @param {number} value
+   * @returns {string}
    */
-  formatCurrency(amount) {
-    if (amount === undefined || amount === null) return 'Rp 0';
-    const num = Number(amount);
-    if (isNaN(num)) return 'Rp 0';
-    return `Rp ${Math.round(num).toLocaleString('id-ID')}`;
+  formatCurrency(value) {
+    const number = Number(value) || 0;
+    return new Intl.NumberFormat(CONFIG.CURRENCY_LOCALE, {
+      style: 'currency',
+      currency: CONFIG.CURRENCY,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(number).replace('IDR', 'Rp');
   },
 
   /**
-   * Format tanggal menjadi DD/MM/YYYY
+   * Format angka biasa dengan pemisah ribuan, mis. 15000 -> "15.000"
+   * @param {number} value
    */
-  formatDate(date) {
-    if (!date) return '-';
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return '-';
-    return d.toLocaleDateString('id-ID', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    });
+  formatNumber(value) {
+    return new Intl.NumberFormat(CONFIG.CURRENCY_LOCALE).format(Number(value) || 0);
+  },
+
+  /* ---------- FORMAT TANGGAL & WAKTU ---------- */
+
+  /**
+   * FIX: Supabase/Postgres kadang mengembalikan timestamp TANPA info zona
+   * waktu (mis. "2026-07-06T05:30:00" tanpa "Z" di akhir). String seperti
+   * itu, kalau langsung dibuat jadi `new Date(...)`, oleh JavaScript
+   * dianggap sebagai WAKTU LOKAL — padahal nilainya sebenarnya UTC. Ini
+   * bikin jam yang ditampilkan meleset sebesar selisih zona waktu (di
+   * Indonesia/WIB, meleset 7 jam). Fungsi ini memaksa string tanpa
+   * info zona waktu untuk dianggap UTC (dengan menambahkan "Z"), supaya
+   * jam yang ditampilkan ke pengguna akurat sesuai zona waktu lokal HP.
+   * @param {string|Date|number} value
+   * @returns {Date}
+   */
+  _parseDate(value) {
+    if (value instanceof Date) return value;
+    if (typeof value === 'string') {
+      const hasTimezoneInfo = /[Zz]|[+-]\d{2}:?\d{2}$/.test(value);
+      if (!hasTimezoneInfo) {
+        // Format "YYYY-MM-DD HH:MM:SS" (spasi) -> ubah jadi "YYYY-MM-DDTHH:MM:SSZ"
+        const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+        return new Date(normalized + 'Z');
+      }
+    }
+    return new Date(value);
   },
 
   /**
-   * Format waktu menjadi HH:MM
+   * Format ISO date string menjadi format tanggal Indonesia.
+   * @param {string|Date} date
+   * @param {object} options - opsi tambahan Intl.DateTimeFormat
    */
-  formatTime(date) {
-    if (!date) return '-';
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return '-';
-    return d.toLocaleTimeString('id-ID', {
-      hour: '2-digit', minute: '2-digit'
-    });
+  formatDate(date, options = {}) {
+    const d = this._parseDate(date);
+    return new Intl.DateTimeFormat(CONFIG.CURRENCY_LOCALE, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      ...options,
+    }).format(d);
   },
 
-  /**
-   * Format datetime lengkap: DD/MM/YYYY HH:MM
-   */
+  /** Format tanggal + jam, mis. "30 Jun 2026, 14:05" */
   formatDateTime(date) {
-    return `${this.formatDate(date)} ${this.formatTime(date)}`;
+    const d = this._parseDate(date);
+    const datePart = this.formatDate(d);
+    const timePart = new Intl.DateTimeFormat(CONFIG.CURRENCY_LOCALE, {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d);
+    return `${datePart}, ${timePart}`;
   },
 
+  /** Mengubah tanggal menjadi teks relatif, mis. "5 menit lalu" */
+  formatRelativeTime(date) {
+    const now = new Date();
+    const target = this._parseDate(date);
+    const diffSeconds = Math.floor((now - target) / 1000);
+
+    if (diffSeconds < 60) return 'Baru saja';
+    if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)} menit lalu`;
+    if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)} jam lalu`;
+    if (diffSeconds < 2592000) return `${Math.floor(diffSeconds / 86400)} hari lalu`;
+    return this.formatDate(target);
+  },
+
+  /* ---------- ID GENERATOR ---------- */
   /**
-   * Sanitasi HTML untuk mencegah XSS
+   * Membuat ID unik sederhana berbasis timestamp + random string.
+   * Dipakai untuk record yang dibuat secara offline sebelum
+   * disinkronkan ke Supabase (yang biasanya pakai UUID/serial).
+   * @param {string} prefix - mis. 'TRX', 'PRD'
    */
-  escapeHtml(text) {
-    if (!text) return '';
-    const map = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
-    };
-    return String(text).replace(/[&<>"']/g, m => map[m]);
+  generateId(prefix = 'ID') {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).slice(2, 8);
+    return `${prefix}-${timestamp}-${random}`.toUpperCase();
   },
 
+  /* ---------- DEBOUNCE & THROTTLE ---------- */
   /**
-   * Mengecek apakah string kosong/null/undefined
-   */
-  isEmpty(value) {
-    return value === undefined || value === null || String(value).trim() === '';
-  },
-
-  /**
-   * Query selector all dengan safety check
-   */
-  qsa(selector, parent = document) {
-    return [...parent.querySelectorAll(selector)];
-  },
-
-  /**
-   * Menghasilkan ID pendek unik (untuk keperluan UI sementara)
-   */
-  uid() {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
-  },
-
-  /* ============== DEBOUNCE ============== */
-
-  /**
-   * Debounce function untuk mencegah eksekusi terlalu sering
-   * (mis. saat mengetik di search)
+   * Mengembalikan versi "debounced" dari sebuah fungsi — fungsi
+   * baru hanya dijalankan setelah `delay` ms tanpa pemanggilan baru.
+   * Cocok untuk input pencarian.
+   * @param {Function} fn
+   * @param {number} delay
    */
   debounce(fn, delay = 300) {
-    let timeout;
+    let timer = null;
     return (...args) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => fn.apply(this, args), delay);
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
     };
   },
 
-  /* ============== TOAST / NOTIFIKASI ============== */
-
   /**
-   * Menampilkan notifikasi toast di pojok layar
-   * @param {string} message - Pesan yang ditampilkan
-   * @param {'success'|'error'|'warning'|'info'} type - Jenis toast
-   * @param {number} duration - Durasi tampil (ms)
+   * Membatasi pemanggilan fungsi maksimal sekali per `limit` ms.
+   * @param {Function} fn
+   * @param {number} limit
+   */
+  throttle(fn, limit = 300) {
+    let waiting = false;
+    return (...args) => {
+      if (waiting) return;
+      fn(...args);
+      waiting = true;
+      setTimeout(() => { waiting = false; }, limit);
+    };
+  },
+
+  /* ---------- TOAST NOTIFICATION ---------- */
+  /**
+   * Menampilkan notifikasi toast sementara di pojok kanan atas.
+   * @param {string} message
+   * @param {'success'|'error'|'warning'|'info'} type
+   * @param {number} duration - ms sebelum toast hilang otomatis
    */
   showToast(message, type = 'info', duration = 3500) {
     const container = document.getElementById('toastContainer');
-    if (!container) {
-      console.warn('Toast container tidak ditemukan!', message);
-      return;
-    }
+    if (!container) return;
 
-    const iconMap = {
+    const icons = {
       success: 'fa-circle-check',
       error: 'fa-circle-xmark',
       warning: 'fa-triangle-exclamation',
-      info: 'fa-circle-info'
+      info: 'fa-circle-info',
     };
 
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
+    toast.className = `toast is-${type}`;
     toast.innerHTML = `
-      <i class="fa-solid ${iconMap[type] || iconMap.info}"></i>
-      <span>${message}</span>
-      <button class="toast-close">&times;</button>
+      <span class="toast-icon"><i class="fa-solid ${icons[type] || icons.info}"></i></span>
+      <span class="toast-message">${this.escapeHtml(message)}</span>
     `;
 
     container.appendChild(toast);
 
-    // Auto close
-    const timer = setTimeout(() => {
-      toast.remove();
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(20px)';
+      setTimeout(() => toast.remove(), 250);
     }, duration);
-
-    // Tombol close manual
-    toast.querySelector('.toast-close')?.addEventListener('click', () => {
-      clearTimeout(timer);
-      toast.remove();
-    });
-
-    // Maksimal 4 toast agar tidak memenuhi layar
-    if (container.children.length > 4) {
-      container.children[0].remove();
-    }
   },
 
-  /* ============== SOUND ============== */
+  /* ---------- KEAMANAN: ESCAPE HTML ---------- */
+  /**
+   * Mencegah XSS saat menyisipkan teks dari user/database ke innerHTML.
+   * @param {string} str
+   */
+  escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = String(str ?? '');
+    return div.innerHTML;
+  },
+
+  /* ---------- VALIDASI ---------- */
+  isEmpty(value) {
+    return value === null || value === undefined || String(value).trim() === '';
+  },
+
+  isValidPhone(phone) {
+    return /^(\+62|0)8[1-9][0-9]{6,10}$/.test(String(phone).replace(/[\s-]/g, ''));
+  },
+
+  /* ---------- SOUND EFFECTS (Web Audio API, tanpa file eksternal) ---------- */
+  _audioCtx: null,
 
   /**
-   * Memutar suara notifikasi (Web Audio API)
-   * @param {'click'|'success'|'error'} type
+   * Memainkan bunyi pendek menggunakan oscillator Web Audio API.
+   * @param {'success'|'error'|'click'|'cash'} type
    */
   playSound(type = 'click') {
+    if (!CONFIG.FEATURES.SOUND_EFFECTS) return;
     try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
+      if (!this._audioCtx) {
+        this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const ctx = this._audioCtx;
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
+      // FIX: browser modern (Chrome/Safari) otomatis men-suspend AudioContext
+      // kalau dibuat/dipakai di luar user-gesture langsung (mis. dari callback
+      // kamera scanner yang berjalan otomatis, bukan dari klik langsung).
+      // Tanpa resume() ini, oscillator tetap "start" tapi tidak ada suara
+      // yang benar-benar keluar.
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
 
-      const frequencyMap = {
-        click: 800,
-        success: 523.25,
-        error: 300
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      const presets = {
+        click: { freq: 600, duration: 0.05, type: 'sine' },
+        success: { freq: 880, duration: 0.15, type: 'sine' },
+        error: { freq: 220, duration: 0.2, type: 'sawtooth' },
+        cash: { freq: 1200, duration: 0.1, type: 'triangle' },
       };
+      const preset = presets[type] || presets.click;
 
-      oscillator.frequency.value = frequencyMap[type] || 500;
-      oscillator.type = 'sine';
+      osc.type = preset.type;
+      osc.frequency.value = preset.freq;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + preset.duration);
 
-      gainNode.gain.value = 0.15;
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
-
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.2);
-    } catch (_) {
-      // Fallback: jika AudioContext tidak didukung, diam saja
+      osc.start();
+      osc.stop(ctx.currentTime + preset.duration);
+    } catch (err) {
+      // Diam-diam gagal jika browser tidak mendukung Web Audio API
+      console.warn('Gagal memutar suara:', err);
     }
   },
 
-  /* ============== PRODUCT ICON HELPER ============== */
-
   /**
-   * Menghasilkan HTML ikon/emoji/gambar untuk produk
-   * @param {object} product - { emoji, image_url, name }
-   * @param {number} size - ukuran dalam px
+   * Panggil dari dalam event handler klik/tap langsung untuk "membuka
+   * kunci" AudioContext, supaya playSound() yang dipanggil belakangan
+   * dari callback asinkron (mis. hasil scan kamera) tetap bisa bunyi.
    */
-  productIconHtml(product, size = 32) {
-    if (!product) return '';
-    const hasImage = product.image_url && product.image_url.startsWith('http');
-    if (hasImage) {
-      return `<img src="${product.image_url}" alt="${this.escapeHtml(product.name)}" style="width:${size}px; height:${size}px; object-fit:cover; border-radius:4px;" onerror="this.style.display='none'; this.parentElement.innerHTML='${product.emoji || '📦'}';">`;
+  unlockAudio() {
+    if (!CONFIG.FEATURES.SOUND_EFFECTS) return;
+    try {
+      if (!this._audioCtx) {
+        this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (this._audioCtx.state === 'suspended') {
+        this._audioCtx.resume();
+      }
+    } catch {
+      // aman diabaikan
     }
-    return `<span style="font-size:${size}px;">${product.emoji || '📦'}</span>`;
-  }
+  },
+
+  /* ---------- CLONE & PERBANDINGAN OBJEK ---------- */
+  deepClone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+  },
+
+  /* ---------- DOM HELPER ---------- */
+  /** Shortcut untuk document.querySelector */
+  qs(selector, scope = document) {
+    return scope.querySelector(selector);
+  },
+
+  /** Shortcut untuk document.querySelectorAll, mengembalikan array */
+  qsa(selector, scope = document) {
+    return Array.from(scope.querySelectorAll(selector));
+  },
+
+  /* ---------- KOMPRESI GAMBAR (untuk foto produk) ---------- */
+  /**
+   * Mengecilkan & mengompres gambar sebelum diupload, supaya ukuran
+   * file kecil (cepat dimuat, aplikasi tetap ringan) tapi masih jelas
+   * dipakai sebagai ikon/thumbnail produk.
+   * @param {File} file - file gambar asli dari input HP
+   * @param {number} maxDimension - ukuran sisi terpanjang maksimal (px)
+   * @param {number} quality - kualitas JPEG (0-1)
+   * @returns {Promise<Blob>}
+   */
+  compressImage(file, maxDimension = 400, quality = 0.75) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = (e) => { img.src = e.target.result; };
+      reader.onerror = () => reject(new Error('Gagal membaca file gambar'));
+
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDimension) {
+          height = Math.round(height * (maxDimension / width));
+          width = maxDimension;
+        } else if (height > maxDimension) {
+          width = Math.round(width * (maxDimension / height));
+          height = maxDimension;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff'; // latar putih (jaga-jaga kalau PNG transparan)
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => blob ? resolve(blob) : reject(new Error('Gagal mengompres gambar')),
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = () => reject(new Error('File bukan gambar yang valid'));
+
+      reader.readAsDataURL(file);
+    });
+  },
+
+  /* ---------- IKON PRODUK (foto asli atau emoji sebagai fallback) ---------- */
+  /**
+   * Menghasilkan HTML ikon produk — pakai foto asli (image_url) kalau
+   * ada, kalau tidak fallback ke emoji. Dipakai konsisten di semua
+   * tempat yang menampilkan ikon produk (grid Kasir, tabel Produk,
+   * keranjang, tabel Stok, dll) supaya seragam.
+   * @param {object} product - { image_url, emoji }
+   * @param {number} sizePx - ukuran kotak ikon dalam pixel
+   */
+  productIconHtml(product, sizePx = 32) {
+    if (product?.image_url) {
+      return `<img src="${product.image_url}" alt="" loading="lazy" style="width:${sizePx}px; height:${sizePx}px; object-fit:cover; border-radius: var(--radius-sm); flex-shrink:0;">`;
+    }
+    return `<div style="width:${sizePx}px; height:${sizePx}px; display:flex; align-items:center; justify-content:center; font-size:${Math.round(sizePx * 0.7)}px; flex-shrink:0;">${product?.emoji || '📦'}</div>`;
+  },
+
+  /* ---------- DOWNLOAD FILE (dipakai oleh fitur export) ---------- */
+  /**
+   * Memicu unduhan file dari konten string di browser.
+   * @param {string} filename
+   * @param {string} content
+   * @param {string} mimeType
+   */
+  downloadFile(filename, content, mimeType = 'text/plain') {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  },
 };
