@@ -54,18 +54,18 @@ const ProductsModule = {
     let imageHtml = '';
     if (hasImage) {
       imageHtml = `
-        <div style="width:100%; aspect-ratio: 3/4; position:relative; overflow:hidden; background: var(--color-surface-alt);">
+        <div style="width:100%; aspect-ratio: 1/1; position:relative; overflow:hidden; background: var(--color-surface-alt);">
           <img src="${product.image_url}" 
                alt="${Utils.escapeHtml(product.name)}" 
                loading="lazy" 
-               onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=\\'position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:40px;\\'>${product.emoji || '📦'}</span>';"
+               onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=\\'position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:32px;\\'>${product.emoji || '📦'}</span>';"
                style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block;">
         </div>
       `;
     } else {
       imageHtml = `
-        <div style="width:100%; aspect-ratio: 3/4; position:relative; background: var(--color-surface-alt);">
-          <span style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:40px;">${product.emoji || '📦'}</span>
+        <div style="width:100%; aspect-ratio: 1/1; position:relative; background: var(--color-surface-alt);">
+          <span style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:32px;">${product.emoji || '📦'}</span>
         </div>
       `;
     }
