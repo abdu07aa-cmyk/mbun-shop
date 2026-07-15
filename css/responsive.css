@@ -135,7 +135,12 @@
   }
 
   .product-grid {
-    grid-template-columns: repeat(3, 1fr);
+    /* FIX DEFINITIF: "1fr" polos punya batas minimum otomatis
+       berdasarkan ukuran ASLI konten di dalamnya (termasuk gambar),
+       jadi kolom tetap nggak mau menyusut walau sudah ditulis 3
+       kolom. minmax(0, 1fr) memaksa batas minimumnya jadi 0, supaya
+       kolom BENERAN bisa menyusut sesuai lebar layar. */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-3);
   }
 
