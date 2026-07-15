@@ -51,8 +51,14 @@
     display: inline-flex;
   }
 
+  /* FIX: sama seperti bug .product-grid — "1fr" polos di sini juga
+     tidak mau menyusut di bawah ukuran minimum kontennya (termasuk
+     panel keranjang yang di desktop lebar 380px tetap). Ini akar
+     masalah utama kenapa grid produk selalu kelebaran di HP walau
+     .product-grid sendiri sudah benar — induknya (.pos-layout) yang
+     belum bisa menyusut ke lebar layar HP. */
   .pos-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   /* FIX: .pos-cart sebelumnya cuma "position:relative" yang bikin
