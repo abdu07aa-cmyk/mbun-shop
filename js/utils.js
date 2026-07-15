@@ -1,11 +1,17 @@
 /* =====================================================
    WARUNGKITA PRO MAX — UTILS.JS
-   Fungsi-fungsi utilitas yang dipakai di seluruh aplikasi
+   Fungsi-fungsi utilitas yang dipakai di seluruh aplikasi:
+   format angka, tanggal, mata uang, sanitasi HTML, debounce,
+   notifikasi (toast), dsb. Supaya modul-modul lain tidak
+   perlu mengulang kode serupa.
    ===================================================== */
 
 const Utils = {
   /* ============== FORMATTING ============== */
 
+  /**
+   * Format angka menjadi mata uang Rupiah (Rp 1.000.000)
+   */
   formatCurrency(amount) {
     if (amount === undefined || amount === null) return 'Rp 0';
     const num = Number(amount);
@@ -13,6 +19,9 @@ const Utils = {
     return `Rp ${Math.round(num).toLocaleString('id-ID')}`;
   },
 
+  /**
+   * Format tanggal menjadi DD/MM/YYYY
+   */
   formatDate(date) {
     if (!date) return '-';
     const d = new Date(date);
@@ -22,6 +31,9 @@ const Utils = {
     });
   },
 
+  /**
+   * Format waktu menjadi HH:MM
+   */
   formatTime(date) {
     if (!date) return '-';
     const d = new Date(date);
@@ -31,27 +43,16 @@ const Utils = {
     });
   },
 
+  /**
+   * Format datetime lengkap: DD/MM/YYYY HH:MM
+   */
   formatDateTime(date) {
     return `${this.formatDate(date)} ${this.formatTime(date)}`;
   },
 
-  formatRelativeTime(date) {
-    if (!date) return '-';
-    const now = new Date();
-    const target = new Date(date);
-    const diffMs = now - target;
-    const diffSec = Math.floor(diffMs / 1000);
-    const diffMin = Math.floor(diffSec / 60);
-    const diffHour = Math.floor(diffMin / 60);
-    const diffDay = Math.floor(diffHour / 24);
-
-    if (diffSec < 60) return 'Baru saja';
-    if (diffMin < 60) return `${diffMin} menit yang lalu`;
-    if (diffHour < 24) return `${diffHour} jam yang lalu`;
-    if (diffDay < 7) return `${diffDay} hari yang lalu`;
-    return this.formatDate(date);
-  },
-
+  /**
+   * Sanitasi HTML untuk mencegah XSS
+   */
   escapeHtml(text) {
     if (!text) return '';
     const map = {
@@ -64,24 +65,33 @@ const Utils = {
     return String(text).replace(/[&<>"']/g, m => map[m]);
   },
 
+  /**
+   * Mengecek apakah string kosong/null/undefined
+   */
   isEmpty(value) {
     return value === undefined || value === null || String(value).trim() === '';
   },
 
+  /**
+   * Query selector all dengan safety check
+   */
   qsa(selector, parent = document) {
     return [...parent.querySelectorAll(selector)];
   },
 
+  /**
+   * Menghasilkan ID pendek unik (untuk keperluan UI sementara)
+   */
   uid() {
     return Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
   },
 
-  generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
-  },
-
   /* ============== DEBOUNCE ============== */
 
+  /**
+   * Debounce function untuk mencegah eksekusi terlalu sering
+   * (mis. saat mengetik di search)
+   */
   debounce(fn, delay = 300) {
     let timeout;
     return (...args) => {
@@ -90,8 +100,14 @@ const Utils = {
     };
   },
 
-  /* ============== TOAST ============== */
+  /* ============== TOAST / NOTIFIKASI ============== */
 
+  /**
+   * Menampilkan notifikasi toast di pojok layar
+   * @param {string} message - Pesan yang ditampilkan
+   * @param {'success'|'error'|'warning'|'info'} type - Jenis toast
+   * @param {number} duration - Durasi tampil (ms)
+   */
   showToast(message, type = 'info', duration = 3500) {
     const container = document.getElementById('toastContainer');
     if (!container) {
@@ -116,15 +132,18 @@ const Utils = {
 
     container.appendChild(toast);
 
+    // Auto close
     const timer = setTimeout(() => {
       toast.remove();
     }, duration);
 
+    // Tombol close manual
     toast.querySelector('.toast-close')?.addEventListener('click', () => {
       clearTimeout(timer);
       toast.remove();
     });
 
+    // Maksimal 4 toast agar tidak memenuhi layar
     if (container.children.length > 4) {
       container.children[0].remove();
     }
@@ -132,6 +151,10 @@ const Utils = {
 
   /* ============== SOUND ============== */
 
+  /**
+   * Memutar suara notifikasi (Web Audio API)
+   * @param {'click'|'success'|'error'} type
+   */
   playSound(type = 'click') {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -155,11 +178,18 @@ const Utils = {
 
       oscillator.start();
       oscillator.stop(audioCtx.currentTime + 0.2);
-    } catch (_) {}
+    } catch (_) {
+      // Fallback: jika AudioContext tidak didukung, diam saja
+    }
   },
 
   /* ============== PRODUCT ICON HELPER ============== */
 
+  /**
+   * Menghasilkan HTML ikon/emoji/gambar untuk produk
+   * @param {object} product - { emoji, image_url, name }
+   * @param {number} size - ukuran dalam px
+   */
   productIconHtml(product, size = 32) {
     if (!product) return '';
     const hasImage = product.image_url && product.image_url.startsWith('http');
@@ -167,72 +197,5 @@ const Utils = {
       return `<img src="${product.image_url}" alt="${this.escapeHtml(product.name)}" style="width:${size}px; height:${size}px; object-fit:cover; border-radius:4px;" onerror="this.style.display='none'; this.parentElement.innerHTML='${product.emoji || '📦'}';">`;
     }
     return `<span style="font-size:${size}px;">${product.emoji || '📦'}</span>`;
-  },
-
-  /* =====================================================
-     KOMPRESI GAMBAR OTOMATIS
-     ===================================================== */
-
-  async compressImage(file, options = {}) {
-    const {
-      maxWidth = 800,
-      maxHeight = 800,
-      quality = 0.7,
-      maxSizeMB = 0.5
-    } = options;
-
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target.result;
-        
-        img.onload = () => {
-          let width = img.width;
-          let height = img.height;
-          
-          if (width > maxWidth || height > maxHeight) {
-            const ratio = Math.min(maxWidth / width, maxHeight / height);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
-          }
-          
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          
-          const ctx = canvas.getContext('2d');
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                resolve(blob);
-              } else {
-                reject(new Error('Gagal mengompres gambar.'));
-              }
-            },
-            'image/jpeg',
-            quality
-          );
-        };
-        
-        img.onerror = () => reject(new Error('Gagal memuat gambar untuk dikompres.'));
-      };
-      
-      reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
-    });
-  },
-
-  formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 };
