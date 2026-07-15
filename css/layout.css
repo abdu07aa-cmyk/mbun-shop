@@ -211,6 +211,7 @@
 /* ============== VIEW CONTAINER ============== */
 .view-container {
   flex: 1;
+  min-width: 0;
   padding: var(--space-6);
 }
 
@@ -253,6 +254,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  min-width: 0;
 }
 
 .pos-products-toolbar {
