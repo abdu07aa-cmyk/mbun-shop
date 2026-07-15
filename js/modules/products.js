@@ -45,9 +45,20 @@ const ProductsModule = {
   _productCardHtml(product) {
     const isOutOfStock = product.stock <= 0;
 
+    // FIX: sebelumnya pakai CSS "aspect-ratio", yang ternyata punya
+    // bug/qwirk di sebagian Chrome Android saat dikombinasikan dengan
+    // CSS Grid + gambar — bikin grid gagal menyusut jadi 3 kolom di HP
+    // (walau di Firefox desktop terlihat normal). Diganti pakai teknik
+    // "padding-top percentage" yang jauh lebih tua tapi didukung 100%
+    // di semua browser tanpa pengecualian, dan tidak bergantung sama
+    // sekali pada ukuran asli (intrinsic size) gambarnya.
     const imageBlock = product.image_url
-      ? `<img src="${product.image_url}" alt="" loading="lazy" style="width:100%; aspect-ratio: 3/4; object-fit:cover; display:block;">`
-      : `<div style="width:100%; aspect-ratio: 3/4; display:flex; align-items:center; justify-content:center; font-size:40px; background: var(--color-surface-alt);">${product.emoji || '📦'}</div>`;
+      ? `<div style="width:100%; padding-top:133.33%; position:relative; overflow:hidden; background: var(--color-surface-alt);">
+          <img src="${product.image_url}" alt="" loading="lazy" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block;">
+        </div>`
+      : `<div style="width:100%; padding-top:133.33%; position:relative; background: var(--color-surface-alt);">
+          <span style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:40px;">${product.emoji || '📦'}</span>
+        </div>`;
 
     return `
       <button class="card product-card" data-product-id="${product.id}" ${isOutOfStock ? 'disabled' : ''}
