@@ -206,6 +206,9 @@ const EventsModule = {
         return;
       }
 
+      // PROTEKSI PIN: diskon kode berlaku ke SELURUH keranjang, jadi
+      // wajib verifikasi PIN dulu supaya tidak sembarang orang bisa
+      // motong harga transaksi.
       AuthModule.requirePin('menerapkan kode diskon', () => {
         if (CartModule.applyDiscountCode(code)) {
           const input = document.getElementById('discountCodeInput');
@@ -259,40 +262,6 @@ const EventsModule = {
     // Ekspor produk
     document.getElementById('exportProductsBtn')?.addEventListener('click', () => {
       ExportModule.exportProducts();
-    });
-
-    // ===================================================
-    // PREVIEW GAMBAR SAAT UPLOAD
-    // ===================================================
-    document.addEventListener('change', (e) => {
-      const fileInput = e.target.closest('#productImage');
-      if (!fileInput) return;
-      
-      const file = fileInput.files[0];
-      if (!file) return;
-      
-      // Validasi ukuran file
-      if (file.size > 5 * 1024 * 1024) {
-        Utils.showToast('Ukuran file maksimal 5MB', 'error');
-        fileInput.value = '';
-        return;
-      }
-      
-      // Tampilkan preview
-      const previewContainer = document.getElementById('imagePreview');
-      if (previewContainer) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          previewContainer.innerHTML = `
-            <img src="${e.target.result}" alt="Preview" style="max-width:150px; max-height:150px; border-radius:8px; border:1px solid var(--color-border); margin-top:8px;">
-            <div style="font-size:12px; color:var(--color-text-muted); margin-top:4px;">
-              ${Utils.formatFileSize(file.size)} 
-              <span style="color:var(--color-primary);">(akan dikompres otomatis)</span>
-            </div>
-          `;
-        };
-        reader.readAsDataURL(file);
-      }
     });
   },
 
@@ -418,6 +387,7 @@ const EventsModule = {
       const deleteBtn = e.target.closest('[data-delete-product]');
       if (deleteBtn) {
         if (window.confirm('Hapus produk ini? Tindakan tidak bisa dibatalkan.')) {
+          // PROTEKSI PIN: hapus produk itu permanen & sensitif.
           AuthModule.requirePin('menghapus produk ini', () => {
             ProductsModule.remove(deleteBtn.dataset.deleteProduct);
           });
