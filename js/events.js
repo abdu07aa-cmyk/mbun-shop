@@ -1,550 +1,280 @@
 /* =====================================================
-   WARUNGKITA PRO MAX — EVENTS.JS
-   Dua bagian utama di file ini:
-   1. ModalManager — helper generik untuk buka/tutup modal
-      yang dipakai seluruh modul di js/modules & js/features
-   2. EventsModule — mendaftarkan SEMUA event listener DOM
-      (klik tombol, keyboard shortcut, navigasi view, dsb)
-      di satu tempat agar mudah ditelusuri dan dirawat.
+   WARUNGKITA PRO MAX — UTILS.JS
+   Fungsi-fungsi utilitas yang dipakai di seluruh aplikasi:
+   format angka, tanggal, mata uang, sanitasi HTML, debounce,
+   notifikasi (toast), dsb. Supaya modul-modul lain tidak
+   perlu mengulang kode serupa.
    ===================================================== */
 
-/* =====================================================
-   BAGIAN 1 — MODAL MANAGER
-   ===================================================== */
-
-const ModalManager = {
-  /** Apakah modal sedang terbuka */
-  isOpen: false,
+const Utils = {
+  /* ============== FORMATTING ============== */
 
   /**
-   * Membuka modal baru di dalam #modalRoot.
-   * @param {string} id - identifier unik modal (bebas, untuk debugging)
-   * @param {object} options
-   * @param {string} options.title - judul header modal
-   * @param {'sm'|'md'|'lg'|'xl'} options.size - lebar modal
-   * @param {string} options.bodyHtml - HTML konten modal
-   * @param {string} options.footerHtml - HTML tombol footer
-   * @param {boolean} options.dismissable - bisa ditutup klik overlay (default: true)
+   * Format angka menjadi mata uang Rupiah (Rp 1.000.000)
    */
-  open(id, { title = '', size = 'md', bodyHtml = '', footerHtml = '', dismissable = true } = {}) {
-    const root = document.getElementById('modalRoot');
-    if (!root) return;
+  formatCurrency(amount) {
+    if (amount === undefined || amount === null) return 'Rp 0';
+    const num = Number(amount);
+    if (isNaN(num)) return 'Rp 0';
+    return `Rp ${Math.round(num).toLocaleString('id-ID')}`;
+  },
 
-    root.innerHTML = `
-      <div class="modal-overlay" id="modalOverlay">
-        <div class="modal modal-${size}" role="dialog" aria-modal="true" aria-labelledby="modalTitle" id="modal-${id}">
-          <div class="modal-header">
-            <h3 id="modalTitle">${Utils.escapeHtml(title)}</h3>
-            <button class="modal-close-btn" data-modal-close aria-label="Tutup modal">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-          <div class="modal-body">${bodyHtml}</div>
-          ${footerHtml ? `<div class="modal-footer">${footerHtml}</div>` : ''}
-        </div>
-      </div>`;
+  /**
+   * Format tanggal menjadi DD/MM/YYYY
+   */
+  formatDate(date) {
+    if (!date) return '-';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('id-ID', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+  },
 
-    root.classList.add('is-open');
-    root.removeAttribute('aria-hidden');
-    this.isOpen = true;
+  /**
+   * Format waktu menjadi HH:MM
+   */
+  formatTime(date) {
+    if (!date) return '-';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleTimeString('id-ID', {
+      hour: '2-digit', minute: '2-digit'
+    });
+  },
 
-    // Fokus ke elemen pertama yang bisa difokus di dalam modal
-    setTimeout(() => {
-      const focusable = root.querySelector('input, button, select, textarea, [tabindex="0"]');
-      focusable?.focus();
-    }, 50);
+  /**
+   * Format datetime lengkap: DD/MM/YYYY HH:MM
+   */
+  formatDateTime(date) {
+    return `${this.formatDate(date)} ${this.formatTime(date)}`;
+  },
 
-    // Event: tutup saat klik overlay (di luar modal)
-    if (dismissable) {
-      document.getElementById('modalOverlay')?.addEventListener('click', (e) => {
-        if (e.target.id === 'modalOverlay') this.close();
-      });
+  /**
+   * Sanitasi HTML untuk mencegah XSS
+   */
+  escapeHtml(text) {
+    if (!text) return '';
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+  },
+
+  /**
+   * Mengecek apakah string kosong/null/undefined
+   */
+  isEmpty(value) {
+    return value === undefined || value === null || String(value).trim() === '';
+  },
+
+  /**
+   * Query selector all dengan safety check
+   */
+  qsa(selector, parent = document) {
+    return [...parent.querySelectorAll(selector)];
+  },
+
+  /**
+   * Menghasilkan ID pendek unik (untuk keperluan UI sementara)
+   */
+  uid() {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+  },
+
+  /* ============== DEBOUNCE ============== */
+
+  /**
+   * Debounce function untuk mencegah eksekusi terlalu sering
+   * (mis. saat mengetik di search)
+   */
+  debounce(fn, delay = 300) {
+    let timeout;
+    return (...args) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn.apply(this, args), delay);
+    };
+  },
+
+  /* ============== TOAST / NOTIFIKASI ============== */
+
+  /**
+   * Menampilkan notifikasi toast di pojok layar
+   * @param {string} message - Pesan yang ditampilkan
+   * @param {'success'|'error'|'warning'|'info'} type - Jenis toast
+   * @param {number} duration - Durasi tampil (ms)
+   */
+  showToast(message, type = 'info', duration = 3500) {
+    const container = document.getElementById('toastContainer');
+    if (!container) {
+      console.warn('Toast container tidak ditemukan!', message);
+      return;
     }
 
-    // Event: tutup saat klik tombol [data-modal-close]
-    root.querySelectorAll('[data-modal-close]').forEach(btn => {
-      btn.addEventListener('click', () => this.close());
+    const iconMap = {
+      success: 'fa-circle-check',
+      error: 'fa-circle-xmark',
+      warning: 'fa-triangle-exclamation',
+      info: 'fa-circle-info'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+      <i class="fa-solid ${iconMap[type] || iconMap.info}"></i>
+      <span>${message}</span>
+      <button class="toast-close">&times;</button>
+    `;
+
+    container.appendChild(toast);
+
+    // Auto close
+    const timer = setTimeout(() => {
+      toast.remove();
+    }, duration);
+
+    // Tombol close manual
+    toast.querySelector('.toast-close')?.addEventListener('click', () => {
+      clearTimeout(timer);
+      toast.remove();
     });
+
+    // Maksimal 4 toast agar tidak memenuhi layar
+    if (container.children.length > 4) {
+      container.children[0].remove();
+    }
   },
 
-  /** Menutup dan membersihkan modal yang sedang aktif */
-  close() {
-    const root = document.getElementById('modalRoot');
-    if (!root) return;
-    root.innerHTML = '';
-    root.classList.remove('is-open');
-    root.setAttribute('aria-hidden', 'true');
-    this.isOpen = false;
-  },
-};
+  /* ============== SOUND ============== */
 
-/* =====================================================
-   BAGIAN 2 — EVENTS MODULE
-   ===================================================== */
+  /**
+   * Memutar suara notifikasi (Web Audio API)
+   * @param {'click'|'success'|'error'} type
+   */
+  playSound(type = 'click') {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
 
-const EventsModule = {
-  init() {
-    this._bindNavigation();
-    this._bindTopbar();
-    this._bindKasirView();
-    this._bindProdukView();
-    this._bindPengaturanView();
-    this._bindTransaksiView();
-    this._bindStokView();
-    this._bindPelangganView();
-    this._bindKeyboardShortcuts();
-    this._bindGlobalDelegation();
-  },
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
 
-  /* ===================================================
-     NAVIGASI SIDEBAR
-     =================================================== */
-  _bindNavigation() {
-    // Tombol nav di sidebar
-    document.querySelectorAll('[data-view]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const view = btn.dataset.view;
-        AppMain.switchView(view);
-      });
-    });
+      const frequencyMap = {
+        click: 800,
+        success: 523.25,
+        error: 300
+      };
 
-    // Link "Lihat semua" di dashboard
-    document.querySelectorAll('[data-view-link]').forEach(link => {
-      link.addEventListener('click', () => AppMain.switchView(link.dataset.viewLink));
-    });
+      oscillator.frequency.value = frequencyMap[type] || 500;
+      oscillator.type = 'sine';
 
-    // Toggle sidebar collapsed (desktop)
-    document.getElementById('sidebarToggle')?.addEventListener('click', () => {
-      const app = document.getElementById('app');
-      app.classList.toggle('is-sidebar-collapsed');
-      STATE.isSidebarCollapsed = app.classList.contains('is-sidebar-collapsed');
-    });
+      gainNode.gain.value = 0.15;
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
 
-    // Tombol hamburger di topbar (mobile)
-    document.getElementById('mobileMenuBtn')?.addEventListener('click', () => {
-      document.getElementById('sidebar')?.classList.toggle('is-mobile-open');
-    });
-
-    // Dark mode toggle
-    document.getElementById('darkModeToggle')?.addEventListener('click', () => {
-      const newTheme = STATE.theme === 'light' ? 'dark' : 'light';
-      document.body.setAttribute('data-theme', newTheme);
-      STATE.setTheme(newTheme);
-      const icon = document.querySelector('#darkModeToggle i');
-      if (icon) icon.className = `fa-solid ${newTheme === 'dark' ? 'fa-sun' : 'fa-moon'}`;
-      // Hancurkan chart agar warnanya ikut update tema baru
-      Charts.destroyAll();
-      AppMain.renderDashboardCharts();
-    });
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.2);
+    } catch (_) {
+      // Fallback: jika AudioContext tidak didukung, diam saja
+    }
   },
 
-  /* ===================================================
-     TOPBAR
-     =================================================== */
-  _bindTopbar() {
-    // Pencarian global (debounce 300ms)
-    document.getElementById('globalSearch')?.addEventListener('input',
-      Utils.debounce((e) => {
-        STATE.searchQuery = e.target.value;
-        if (STATE.currentView === 'kasir') {
-          ProductsModule.renderProductGrid();
-        }
-      }, 300)
-    );
+  /* ============== PRODUCT ICON HELPER ============== */
 
-    // Tombol notifikasi
-    document.getElementById('notifBtn')?.addEventListener('click', () => {
-      Notifications.openNotificationPanel();
-    });
-
-    // Tombol AI Assistant
-    document.getElementById('aiAssistantBtn')?.addEventListener('click', () => {
-      AIModule.openAssistant();
-    });
-
-    // Tombol "Transaksi Baru" — langsung switch ke view Kasir
-    document.getElementById('newSaleBtn')?.addEventListener('click', () => {
-      AppMain.switchView('kasir');
-    });
+  /**
+   * Menghasilkan HTML ikon/emoji/gambar untuk produk
+   * @param {object} product - { emoji, image_url, name }
+   * @param {number} size - ukuran dalam px
+   */
+  productIconHtml(product, size = 32) {
+    if (!product) return '';
+    const hasImage = product.image_url && product.image_url.startsWith('http');
+    if (hasImage) {
+      return `<img src="${product.image_url}" alt="${this.escapeHtml(product.name)}" style="width:${size}px; height:${size}px; object-fit:cover; border-radius:4px;" onerror="this.style.display='none'; this.parentElement.innerHTML='${product.emoji || '📦'}';">`;
+    }
+    return `<span style="font-size:${size}px;">${product.emoji || '📦'}</span>`;
   },
 
-  /* ===================================================
-     VIEW KASIR (POS)
-     =================================================== */
-  _bindKasirView() {
-    // Klik kartu produk di grid → tambah ke keranjang
-    document.getElementById('productGrid')?.addEventListener('click', (e) => {
-      const card = e.target.closest('[data-product-id]');
-      if (card && !card.disabled) CartModule.addItem(card.dataset.productId);
-    });
+  /* =====================================================
+     KOMPRESI GAMBAR OTOMATIS
+     ===================================================== */
 
-    // Filter kategori
-    document.getElementById('categoryPills')?.addEventListener('click', (e) => {
-      const pill = e.target.closest('[data-category]');
-      if (!pill) return;
-      STATE.activeCategory = pill.dataset.category;
-      document.querySelectorAll('.pill').forEach(p => p.classList.remove('is-active'));
-      pill.classList.add('is-active');
-      ProductsModule.renderProductGrid();
-    });
+  /**
+   * Kompres gambar sebelum upload (otomatis)
+   * @param {File} file - File gambar dari input
+   * @param {Object} options - { maxWidth, maxHeight, quality, maxSizeMB }
+   * @returns {Promise<Blob>} - Gambar terkompresi dalam bentuk Blob
+   */
+  async compressImage(file, options = {}) {
+    const {
+      maxWidth = 800,
+      maxHeight = 800,
+      quality = 0.7,
+      maxSizeMB = 0.5
+    } = options;
 
-    // Tombol barcode scanner
-    document.getElementById('scanBarcodeBtn')?.addEventListener('click', () => {
-      BarcodeModule.openScannerModal();
-    });
-
-    // Pilih pelanggan untuk transaksi saat ini
-    document.getElementById('selectCustomerBtn')?.addEventListener('click', () => {
-      CartModule.openCustomerPicker();
-    });
-
-    // Terapkan kode diskon
-    document.getElementById('applyDiscountBtn')?.addEventListener('click', () => {
-      const code = document.getElementById('discountCodeInput')?.value;
-      if (!code || !code.trim()) {
-        Utils.showToast('Masukkan kode diskon dulu', 'warning');
-        return;
-      }
-
-      // PROTEKSI PIN: diskon kode berlaku ke SELURUH keranjang, jadi
-      // wajib verifikasi PIN dulu supaya tidak sembarang orang bisa
-      // motong harga transaksi.
-      AuthModule.requirePin('menerapkan kode diskon', () => {
-        if (CartModule.applyDiscountCode(code)) {
-          const input = document.getElementById('discountCodeInput');
-          if (input) input.value = '';
-        }
-      });
-    });
-
-    // Tahan keranjang
-    document.getElementById('holdCartBtn')?.addEventListener('click', () => {
-      HoldCartModule.holdCurrentCart();
-    });
-
-    // Lihat daftar keranjang yang ditahan
-    document.getElementById('viewHeldCartsBtn')?.addEventListener('click', () => {
-      HoldCartModule.openHeldCartsModal();
-    });
-    this._syncHeldCartsBadge();
-
-    // Kosongkan keranjang
-    document.getElementById('clearCartBtn')?.addEventListener('click', () => {
-      CartModule.clear();
-    });
-
-    // Tombol bayar
-    document.getElementById('payBtn')?.addEventListener('click', () => {
-      PaymentModule.openPaymentModal();
-    });
-  },
-
-  /* ===================================================
-     BADGE KERANJANG DITAHAN
-     =================================================== */
-  _syncHeldCartsBadge() {
-    const badge = document.getElementById('heldCartsBadge');
-    if (!badge) return;
-    const count = STATE.heldCarts.length;
-    badge.textContent = count;
-    badge.style.display = count > 0 ? 'flex' : 'none';
-  },
-
-  /* ===================================================
-     VIEW PRODUK
-     =================================================== */
-  _bindProdukView() {
-    // Tambah produk baru
-    document.getElementById('addProductBtn')?.addEventListener('click', () => {
-      AppMain.openProductFormModal();
-    });
-
-    // Ekspor produk
-    document.getElementById('exportProductsBtn')?.addEventListener('click', () => {
-      ExportModule.exportProducts();
-    });
-
-    // ===================================================
-    // BARU: PREVIEW GAMBAR SAAT UPLOAD
-    // ===================================================
-    document.addEventListener('change', (e) => {
-      const fileInput = e.target.closest('#productImage');
-      if (!fileInput) return;
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
       
-      const file = fileInput.files[0];
-      if (!file) return;
-      
-      // Validasi ukuran file
-      if (file.size > 5 * 1024 * 1024) {
-        Utils.showToast('Ukuran file maksimal 5MB', 'error');
-        fileInput.value = '';
-        return;
-      }
-      
-      // Tampilkan preview
-      const previewContainer = document.getElementById('imagePreview');
-      if (previewContainer) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          previewContainer.innerHTML = `
-            <img src="${e.target.result}" alt="Preview" style="max-width:150px; max-height:150px; border-radius:8px; border:1px solid var(--color-border); margin-top:8px;">
-            <div style="font-size:12px; color:var(--color-text-muted); margin-top:4px;">
-              ${Utils.formatFileSize(file.size)} 
-              <span style="color:var(--color-primary);">(akan dikompres otomatis)</span>
-            </div>
-          `;
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        
+        img.onload = () => {
+          // Hitung dimensi baru dengan mempertahankan rasio aspek
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+          
+          // Buat canvas untuk menggambar ulang gambar
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Kompres ke format JPEG
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                reject(new Error('Gagal mengompres gambar.'));
+              }
+            },
+            'image/jpeg',
+            quality
+          );
         };
-        reader.readAsDataURL(file);
-      }
+        
+        img.onerror = () => reject(new Error('Gagal memuat gambar untuk dikompres.'));
+      };
+      
+      reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
     });
   },
 
-  /* ===================================================
-     VIEW PENGATURAN
-     =================================================== */
-  _bindPengaturanView() {
-    // Tambah kategori produk baru
-    document.getElementById('addCategoryBtn')?.addEventListener('click', () => {
-      const input = document.getElementById('newCategoryInput');
-      ProductsModule.addCategory(input?.value);
-      if (input) input.value = '';
-    });
-
-    document.getElementById('newCategoryInput')?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        ProductsModule.addCategory(e.target.value);
-        e.target.value = '';
-      }
-    });
-
-    // Download cadangan semua data
-    document.getElementById('backupDataBtn')?.addEventListener('click', () => {
-      BackupModule.downloadBackup();
-    });
-
-    document.getElementById('restoreDataBtn')?.addEventListener('click', () => {
-      BackupModule.openRestoreModal();
-    });
-  },
-
-  /* ===================================================
-     VIEW TRANSAKSI
-     =================================================== */
-  _bindTransaksiView() {
-    document.getElementById('exportTransactionsBtn')?.addEventListener('click', () => {
-      ExportModule.exportTransactions();
-    });
-  },
-
-  /* ===================================================
-     VIEW STOK
-     =================================================== */
-  _bindStokView() {
-    document.getElementById('stockInBtn')?.addEventListener('click', () => {
-      StockModule.openStockInModal();
-    });
-
-    document.getElementById('stockOutBtn')?.addEventListener('click', () => {
-      StockModule.openStockOutModal();
-    });
-  },
-
-  /* ===================================================
-     VIEW PELANGGAN
-     =================================================== */
-  _bindPelangganView() {
-    document.getElementById('addCustomerBtn')?.addEventListener('click', () => {
-      AppMain.openCustomerFormModal();
-    });
-  },
-
-  /* ===================================================
-     KEYBOARD SHORTCUTS
-     =================================================== */
-  _bindKeyboardShortcuts() {
-    document.addEventListener('keydown', (e) => {
-      const s = CONFIG.SHORTCUTS;
-
-      // Ctrl+K — fokus ke search
-      if (e.ctrlKey && e.key === s.FOCUS_SEARCH.key) {
-        e.preventDefault();
-        document.getElementById('globalSearch')?.focus();
-      }
-
-      // Ctrl+N — tambah produk baru (dari view produk)
-      if (e.ctrlKey && e.key === s.NEW_PRODUCT.key) {
-        e.preventDefault();
-        AppMain.openProductFormModal();
-      }
-
-      // Ctrl+D — toggle dark mode
-      if (e.ctrlKey && e.key === s.TOGGLE_DARK_MODE.key) {
-        e.preventDefault();
-        document.getElementById('darkModeToggle')?.click();
-      }
-
-      // F9 — proses pembayaran
-      if (e.key === s.PROCESS_PAYMENT.key) {
-        e.preventDefault();
-        PaymentModule.openPaymentModal();
-      }
-
-      // Escape — tutup modal atau kosongkan keranjang
-      if (e.key === s.CLOSE_ESCAPE.key) {
-        if (ModalManager.isOpen) {
-          ModalManager.close();
-        }
-      }
-    });
-  },
-
-  /* ===================================================
-     EVENT DELEGATION GLOBAL
-     Menangkap klik pada elemen yang di-render secara
-     dinamis (tabel produk, tabel stok, dsb).
-     =================================================== */
-  _bindGlobalDelegation() {
-    document.addEventListener('click', (e) => {
-      // Edit produk
-      const editBtn = e.target.closest('[data-edit-product]');
-      if (editBtn) AppMain.openProductFormModal(editBtn.dataset.editProduct);
-
-      // Pilih pelanggan dari daftar
-      const pickCustomerBtn = e.target.closest('[data-pick-customer]');
-      if (pickCustomerBtn) CartModule.setActiveCustomer(pickCustomerBtn.dataset.pickCustomer);
-
-      // Edit pelanggan
-      const editCustomerBtn = e.target.closest('[data-edit-customer]');
-      if (editCustomerBtn) AppMain.openCustomerFormModal(editCustomerBtn.dataset.editCustomer);
-
-      // Hapus produk
-      const deleteBtn = e.target.closest('[data-delete-product]');
-      if (deleteBtn) {
-        if (window.confirm('Hapus produk ini? Tindakan tidak bisa dibatalkan.')) {
-          // PROTEKSI PIN: hapus produk itu permanen & sensitif.
-          AuthModule.requirePin('menghapus produk ini', () => {
-            ProductsModule.remove(deleteBtn.dataset.deleteProduct);
-          });
-        }
-      }
-
-      // Barang masuk dari tabel stok
-      const stockInBtn = e.target.closest('[data-stock-in]');
-      if (stockInBtn) StockModule.openStockInModal(stockInBtn.dataset.stockIn);
-
-      const stockOutBtn = e.target.closest('[data-stock-out]');
-      if (stockOutBtn) StockModule.openStockOutModal(stockOutBtn.dataset.stockOut);
-
-      // Keranjang: increment/decrement/remove
-      const incrementBtn = e.target.closest('[data-cart-increment]');
-      if (incrementBtn) CartModule.incrementItem(incrementBtn.dataset.cartIncrement);
-
-      const decrementBtn = e.target.closest('[data-cart-decrement]');
-      if (decrementBtn) CartModule.decrementItem(decrementBtn.dataset.cartDecrement);
-
-      const removeBtn = e.target.closest('[data-cart-remove]');
-      if (removeBtn) CartModule.removeItem(removeBtn.dataset.cartRemove);
-
-      const itemDiscountBtn = e.target.closest('[data-item-discount]');
-      if (itemDiscountBtn) CartModule.openItemDiscountModal(itemDiscountBtn.dataset.itemDiscount);
-    });
-  },
+  /**
+   * Format ukuran file agar mudah dibaca
+   */
+  formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
 };
-
-/* =====================================================
-   MOBILE UX — ditambahkan sebagai extension EventsModule
-   ===================================================== */
-
-const MobileUX = {
-  init() {
-    this._bindBottomNav();
-    this._bindCartFab();
-    this._bindSidebarBackdrop();
-    this._syncCartBadge();
-
-    // Update badge keranjang setiap kali cart berubah
-    STATE.subscribe('cart', () => this._syncCartBadge());
-    // Update active state bottom nav setiap ganti view
-    STATE.subscribe('view', () => this._syncBottomNav());
-  },
-
-  /* -------- Bottom Navigation -------- */
-  _bindBottomNav() {
-    document.querySelectorAll('#bottomNav [data-view]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        AppMain.switchView(btn.dataset.view);
-      });
-    });
-  },
-
-  _syncBottomNav() {
-    document.querySelectorAll('#bottomNav [data-view]').forEach(btn => {
-      btn.classList.toggle('is-active', btn.dataset.view === STATE.currentView);
-    });
-  },
-
-  /* -------- Floating Cart Button -------- */
-  _bindCartFab() {
-    const fab = document.getElementById('cartFab');
-    const cart = document.getElementById('posCart') || document.querySelector('.pos-cart');
-    const backdrop = document.getElementById('cartBackdrop');
-
-    fab?.addEventListener('click', () => this._openCart());
-    backdrop?.addEventListener('click', () => this._closeCart());
-
-    // Drag handle di header keranjang untuk tutup
-    document.querySelector('.pos-cart-header')?.addEventListener('click', (e) => {
-      if (window.innerWidth <= 860 && document.querySelector('.pos-cart.is-cart-open')) {
-        this._closeCart();
-      }
-    });
-  },
-
-  _openCart() {
-    document.querySelector('.pos-cart')?.classList.add('is-cart-open');
-    document.getElementById('cartBackdrop')?.classList.add('is-visible');
-    document.body.style.overflow = 'hidden';
-  },
-
-  _closeCart() {
-    document.querySelector('.pos-cart')?.classList.remove('is-cart-open');
-    document.getElementById('cartBackdrop')?.classList.remove('is-visible');
-    document.body.style.overflow = '';
-  },
-
-  _syncCartBadge() {
-    const badge = document.getElementById('cartFabBadge');
-    const fab = document.getElementById('cartFab');
-    if (!badge || !fab) return;
-
-    const count = STATE.cartItemCount;
-    badge.textContent = count;
-
-    // Hanya tampilkan FAB saat di view kasir DAN ada item / selalu tampil di kasir
-    if (STATE.currentView === 'kasir') {
-      fab.style.display = 'flex';
-    } else {
-      fab.style.display = 'none';
-    }
-  },
-
-  /* -------- Sidebar Backdrop -------- */
-  _bindSidebarBackdrop() {
-    document.getElementById('sidebarBackdrop')?.addEventListener('click', () => {
-      document.getElementById('sidebar')?.classList.remove('is-mobile-open');
-      document.getElementById('sidebarBackdrop')?.classList.remove('is-visible');
-    });
-
-    // Saat sidebar dibuka, tampilkan juga backdrop
-    document.getElementById('mobileMenuBtn')?.addEventListener('click', () => {
-      const isOpen = document.getElementById('sidebar')?.classList.contains('is-mobile-open');
-      document.getElementById('sidebarBackdrop')?.classList.toggle('is-visible', isOpen);
-    });
-  },
-};
-
-// Bootstrap MobileUX setelah DOM siap
-document.addEventListener('DOMContentLoaded', () => {
-  // Tunggu AppMain selesai init dulu, baru init MobileUX
-  setTimeout(() => MobileUX.init(), 100);
-});
