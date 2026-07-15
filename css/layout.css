@@ -469,3 +469,31 @@
 .cart-backdrop.is-visible {
   display: block;
 }
+/* =====================================================
+   FIX MOBILE: 3 KOLOM PRODUK DI HP (BARU)
+   ===================================================== */
+@media (max-width: 640px) {
+  .product-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: var(--space-2) !important;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .product-card {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .product-card div[style*="aspect-ratio"],
+  .product-card div[style*="padding-top"] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  .product-card img {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}
