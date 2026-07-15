@@ -223,10 +223,6 @@ const EventsModule = {
     });
 
     // Lihat daftar keranjang yang ditahan
-    // FIX: sebelumnya fungsi HoldCartModule.openHeldCartsModal() sudah
-    // ada tapi TIDAK PERNAH dipanggil dari manapun (tidak ada tombolnya
-    // di HTML), jadi keranjang yang ditahan tidak bisa dilihat/dilanjutkan
-    // sama sekali dari UI.
     document.getElementById('viewHeldCartsBtn')?.addEventListener('click', () => {
       HoldCartModule.openHeldCartsModal();
     });
@@ -266,6 +262,40 @@ const EventsModule = {
     // Ekspor produk
     document.getElementById('exportProductsBtn')?.addEventListener('click', () => {
       ExportModule.exportProducts();
+    });
+
+    // ===================================================
+    // BARU: PREVIEW GAMBAR SAAT UPLOAD
+    // ===================================================
+    document.addEventListener('change', (e) => {
+      const fileInput = e.target.closest('#productImage');
+      if (!fileInput) return;
+      
+      const file = fileInput.files[0];
+      if (!file) return;
+      
+      // Validasi ukuran file
+      if (file.size > 5 * 1024 * 1024) {
+        Utils.showToast('Ukuran file maksimal 5MB', 'error');
+        fileInput.value = '';
+        return;
+      }
+      
+      // Tampilkan preview
+      const previewContainer = document.getElementById('imagePreview');
+      if (previewContainer) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          previewContainer.innerHTML = `
+            <img src="${e.target.result}" alt="Preview" style="max-width:150px; max-height:150px; border-radius:8px; border:1px solid var(--color-border); margin-top:8px;">
+            <div style="font-size:12px; color:var(--color-text-muted); margin-top:4px;">
+              ${Utils.formatFileSize(file.size)} 
+              <span style="color:var(--color-primary);">(akan dikompres otomatis)</span>
+            </div>
+          `;
+        };
+        reader.readAsDataURL(file);
+      }
     });
   },
 
@@ -383,9 +413,7 @@ const EventsModule = {
       const pickCustomerBtn = e.target.closest('[data-pick-customer]');
       if (pickCustomerBtn) CartModule.setActiveCustomer(pickCustomerBtn.dataset.pickCustomer);
 
-      // FIX: sebelumnya belum ada listener sama sekali untuk tombol
-      // edit pelanggan, jadi tombol pensil di menu Pelanggan tidak
-      // pernah merespons klik.
+      // Edit pelanggan
       const editCustomerBtn = e.target.closest('[data-edit-customer]');
       if (editCustomerBtn) AppMain.openCustomerFormModal(editCustomerBtn.dataset.editCustomer);
 
