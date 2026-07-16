@@ -154,6 +154,14 @@ const AppMain = {
     const target = document.getElementById('view-' + view);
     if (target) target.hidden = false;
 
+    // Reset pencarian tiap ganti menu, biar nggak ada filter yang
+    // "nyangkut" dari menu sebelumnya bikin bingung (mis. pindah dari
+    // Produk yang lagi difilter ke Transaksi, tapi Transaksi ikut
+    // kefilter kata yang sama tanpa disadari).
+    STATE.searchQuery = '';
+    const searchInput = document.getElementById('globalSearch');
+    if (searchInput) searchInput.value = '';
+
     STATE.setCurrentView(view);
     document.querySelectorAll('[data-view]').forEach(btn => {
       btn.classList.toggle('is-active', btn.dataset.view === view);
@@ -260,12 +268,19 @@ const AppMain = {
     const tbody = document.querySelector('#transactionsTable tbody');
     if (!tbody) return;
 
-    if (STATE.transactions.length === 0) {
-      tbody.innerHTML = `<tr class="table-empty-row"><td colspan="9">Belum ada riwayat transaksi.</td></tr>`;
+    const q = STATE.searchQuery.trim().toLowerCase();
+    const filtered = !q ? STATE.transactions : STATE.transactions.filter(t =>
+      String(t.id).toLowerCase().includes(q) ||
+      (t.customer_name || '').toLowerCase().includes(q) ||
+      (t.payment_method || '').toLowerCase().includes(q)
+    );
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr class="table-empty-row"><td colspan="9">${q ? 'Tidak ada transaksi yang cocok dengan pencarian.' : 'Belum ada riwayat transaksi.'}</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = STATE.transactions.map(t => `
+    tbody.innerHTML = filtered.map(t => `
       <tr>
         <td><small>${Utils.escapeHtml(String(t.id).slice(-10))}</small></td>
         <td>${Utils.formatDateTime(t.created_at)}</td>
@@ -382,12 +397,17 @@ const AppMain = {
     const tbody = document.querySelector('#customersTable tbody');
     if (!tbody) return;
 
-    if (STATE.customers.length === 0) {
-      tbody.innerHTML = `<tr class="table-empty-row"><td colspan="5">Belum ada data pelanggan.</td></tr>`;
+    const q = STATE.searchQuery.trim().toLowerCase();
+    const filtered = !q ? STATE.customers : STATE.customers.filter(c =>
+      c.name.toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q)
+    );
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr class="table-empty-row"><td colspan="5">${q ? 'Tidak ada pelanggan yang cocok dengan pencarian.' : 'Belum ada data pelanggan.'}</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = STATE.customers.map(c => `
+    tbody.innerHTML = filtered.map(c => `
       <tr>
         <td>${Utils.escapeHtml(c.name)}</td>
         <td>${Utils.escapeHtml(c.phone || '-')}</td>
