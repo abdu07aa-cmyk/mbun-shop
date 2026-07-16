@@ -124,12 +124,19 @@ const ProductsModule = {
     const tbody = document.querySelector('#productsTable tbody');
     if (!tbody) return;
 
-    if (STATE.products.length === 0) {
-      tbody.innerHTML = `<tr class="table-empty-row"><td colspan="8">Belum ada produk. Klik "Tambah Produk" untuk mulai.</td></tr>`;
+    const q = STATE.searchQuery.trim().toLowerCase();
+    const filtered = !q ? STATE.products : STATE.products.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.category || '').toLowerCase().includes(q) ||
+      (p.barcode || '').toLowerCase().includes(q)
+    );
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr class="table-empty-row"><td colspan="8">${q ? 'Tidak ada produk yang cocok dengan pencarian.' : 'Belum ada produk. Klik "Tambah Produk" untuk mulai.'}</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = STATE.products.map(p => `
+    tbody.innerHTML = filtered.map(p => `
       <tr>
         <td>${Utils.productIconHtml(p, 32)}</td>
         <td>${Utils.escapeHtml(p.name)}</td>
