@@ -17,13 +17,16 @@ const StockModule = {
     const tbody = document.querySelector('#stockTable tbody');
     if (!tbody) return;
 
-    if (STATE.products.length === 0) {
-      tbody.innerHTML = `<tr class="table-empty-row"><td colspan="4">Belum ada data produk.</td></tr>`;
+    const q = STATE.searchQuery.trim().toLowerCase();
+    const base = !q ? STATE.products : STATE.products.filter(p => p.name.toLowerCase().includes(q));
+
+    if (base.length === 0) {
+      tbody.innerHTML = `<tr class="table-empty-row"><td colspan="4">${q ? 'Tidak ada produk yang cocok dengan pencarian.' : 'Belum ada data produk.'}</td></tr>`;
       return;
     }
 
     // Urutkan supaya produk dengan stok paling menipis tampil di atas
-    const sorted = [...STATE.products].sort((a, b) => a.stock - b.stock);
+    const sorted = [...base].sort((a, b) => a.stock - b.stock);
 
     tbody.innerHTML = sorted.map(p => `
       <tr>
