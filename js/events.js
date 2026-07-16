@@ -142,12 +142,20 @@ const EventsModule = {
      TOPBAR
      =================================================== */
   _bindTopbar() {
-    // Pencarian global (debounce 300ms)
+    // Pencarian global (debounce 300ms) — bekerja kontekstual sesuai
+    // menu yang lagi dibuka (Kasir cari produk, Produk cari produk,
+    // Transaksi cari transaksi, Pelanggan cari pelanggan, Stok cari
+    // produk), bukan cuma berfungsi di Kasir doang.
     document.getElementById('globalSearch')?.addEventListener('input',
       Utils.debounce((e) => {
         STATE.searchQuery = e.target.value;
-        if (STATE.currentView === 'kasir') {
-          ProductsModule.renderProductGrid();
+
+        switch (STATE.currentView) {
+          case 'kasir':      ProductsModule.renderProductGrid(); break;
+          case 'produk':     ProductsModule.renderProductsTable(); break;
+          case 'transaksi':  AppMain.renderTransactionsTable(); break;
+          case 'pelanggan':  AppMain.renderCustomersTable(); break;
+          case 'stok':       StockModule.renderStockTable(); break;
         }
       }, 300)
     );
@@ -157,9 +165,11 @@ const EventsModule = {
       Notifications.openNotificationPanel();
     });
 
-    // Tombol AI Assistant
-    document.getElementById('aiAssistantBtn')?.addEventListener('click', () => {
-      AIModule.openAssistant();
+    // Tombol Keranjang di topbar (posisi ala marketplace) — pindah ke
+    // Kasir kalau belum di situ, lalu buka panel keranjang.
+    document.getElementById('topCartBtn')?.addEventListener('click', () => {
+      if (STATE.currentView !== 'kasir') AppMain.switchView('kasir');
+      MobileUX._openCart();
     });
 
     // Tombol "Transaksi Baru" — langsung switch ke view Kasir
@@ -223,6 +233,10 @@ const EventsModule = {
     });
 
     // Lihat daftar keranjang yang ditahan
+    // FIX: sebelumnya fungsi HoldCartModule.openHeldCartsModal() sudah
+    // ada tapi TIDAK PERNAH dipanggil dari manapun (tidak ada tombolnya
+    // di HTML), jadi keranjang yang ditahan tidak bisa dilihat/dilanjutkan
+    // sama sekali dari UI.
     document.getElementById('viewHeldCartsBtn')?.addEventListener('click', () => {
       HoldCartModule.openHeldCartsModal();
     });
@@ -379,7 +393,9 @@ const EventsModule = {
       const pickCustomerBtn = e.target.closest('[data-pick-customer]');
       if (pickCustomerBtn) CartModule.setActiveCustomer(pickCustomerBtn.dataset.pickCustomer);
 
-      // Edit pelanggan
+      // FIX: sebelumnya belum ada listener sama sekali untuk tombol
+      // edit pelanggan, jadi tombol pensil di menu Pelanggan tidak
+      // pernah merespons klik.
       const editCustomerBtn = e.target.closest('[data-edit-customer]');
       if (editCustomerBtn) AppMain.openCustomerFormModal(editCustomerBtn.dataset.editCustomer);
 
@@ -481,16 +497,20 @@ const MobileUX = {
   _syncCartBadge() {
     const badge = document.getElementById('cartFabBadge');
     const fab = document.getElementById('cartFab');
-    if (!badge || !fab) return;
-
     const count = STATE.cartItemCount;
-    badge.textContent = count;
 
-    // Hanya tampilkan FAB saat di view kasir DAN ada item / selalu tampil di kasir
-    if (STATE.currentView === 'kasir') {
-      fab.style.display = 'flex';
-    } else {
-      fab.style.display = 'none';
+    if (badge && fab) {
+      badge.textContent = count;
+      // Hanya tampilkan FAB saat di view kasir DAN ada item / selalu tampil di kasir
+      fab.style.display = STATE.currentView === 'kasir' ? 'flex' : 'none';
+    }
+
+    // Badge keranjang di topbar — tampil di SEMUA halaman (bukan cuma
+    // Kasir), sesuai posisi ala marketplace yang selalu kelihatan.
+    const topBadge = document.getElementById('topCartBadge');
+    if (topBadge) {
+      topBadge.textContent = count;
+      topBadge.style.display = count > 0 ? 'flex' : 'none';
     }
   },
 
