@@ -29,6 +29,7 @@ const CONFIG = {
     CUSTOMERS: 'customers',
     STOCK_MOVEMENTS: 'stock_movements',
     HELD_CARTS: 'held_carts',
+    ONLINE_ORDERS: 'online_orders',
   },
 
   /* ---------- INFORMASI TOKO ---------- */
