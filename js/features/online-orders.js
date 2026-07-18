@@ -133,17 +133,47 @@ const OnlineOrdersModule = {
   },
 
   async updateStatus(orderId, status) {
+    const order = this.orders.find(o => String(o.id) === String(orderId));
+    if (!order) return;
+
     try {
       await API.update(CONFIG.TABLES.ONLINE_ORDERS, { id: `eq.${orderId}` }, { status });
-      const order = this.orders.find(o => String(o.id) === String(orderId));
-      if (order) order.status = status;
+      order.status = status;
+
+      // FIX: kurangi stok produk HANYA sekali, tepat saat pesanan
+      // pertama kali dikonfirmasi "Dibayar". Pakai penanda
+      // stock_deducted supaya nggak kepotong dobel kalau admin
+      // ubah-ubah status bolak-balik.
+      if (status === 'dibayar' && !order.stock_deducted) {
+        await this._deductStock(order);
+        await API.update(CONFIG.TABLES.ONLINE_ORDERS, { id: `eq.${orderId}` }, { stock_deducted: true });
+        order.stock_deducted = true;
+      }
+
       this.render();
       this._syncBadge();
       ModalManager.close();
-      Utils.showToast('Status pesanan diperbarui', 'success');
+      Utils.showToast(
+        'Status pesanan diperbarui' + (status === 'dibayar' ? ' & stok otomatis dikurangi' : ''),
+        'success'
+      );
     } catch (err) {
       console.error('[OnlineOrders] Gagal update status:', err);
       Utils.showToast('Gagal memperbarui status pesanan', 'error');
+    }
+  },
+
+  /** Mengurangi stok produk sesuai item-item di pesanan online ini */
+  async _deductStock(order) {
+    for (const item of (order.items || [])) {
+      const product = STATE.products.find(p => String(p.id) === String(item.productId));
+      if (!product) continue;
+      const newStock = Math.max(0, product.stock - item.qty);
+      try {
+        await ProductsModule.update(product.id, { stock: newStock });
+      } catch (err) {
+        console.warn('[OnlineOrders] Gagal kurangi stok produk', item.name, err.message);
+      }
     }
   },
 
