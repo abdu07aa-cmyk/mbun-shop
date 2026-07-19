@@ -136,6 +136,27 @@ const OnlineOrdersModule = {
     const order = this.orders.find(o => String(o.id) === String(orderId));
     if (!order) return;
 
+    // FIX: cek ulang stok SEBELUM konfirmasi "Dibayar" — mencegah kasus
+    // 2 pesanan online rebutan barang yang sama sementara stoknya udah
+    // nggak cukup buat dua-duanya. Kalau kurang, admin diberi tau &
+    // diminta konfirmasi manual apa tetap mau dilanjutkan.
+    if (status === 'dibayar' && !order.stock_deducted) {
+      const insufficient = [];
+      (order.items || []).forEach(item => {
+        const product = STATE.products.find(p => String(p.id) === String(item.productId));
+        if (product && product.stock < item.qty) {
+          insufficient.push(`${item.name} (butuh ${item.qty}, sisa stok ${product.stock})`);
+        }
+      });
+
+      if (insufficient.length > 0) {
+        const proceed = window.confirm(
+          `⚠️ Stok tidak mencukupi untuk:\n\n${insufficient.join('\n')}\n\nKemungkinan kehabisan karena pesanan lain. Tetap konfirmasi pesanan ini? (stok barang yang kurang akan jadi 0)`
+        );
+        if (!proceed) return;
+      }
+    }
+
     try {
       await API.update(CONFIG.TABLES.ONLINE_ORDERS, { id: `eq.${orderId}` }, { status });
       order.status = status;
