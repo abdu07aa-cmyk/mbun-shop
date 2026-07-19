@@ -9,25 +9,33 @@
 
 const BackupModule = {
   /** Mengumpulkan seluruh data aplikasi yang sedang dimuat di STATE */
-  _collectData() {
+  async _collectData() {
+    let onlineOrders = [];
+    try {
+      onlineOrders = await API.fetchAll(CONFIG.TABLES.ONLINE_ORDERS, { order: 'created_at.desc' });
+    } catch (err) {
+      console.warn('[Backup] Gagal memuat online_orders untuk backup:', err.message);
+    }
+
     return {
       backup_info: {
         store_name: CONFIG.STORE.NAME,
         created_at: new Date().toISOString(),
-        version: 1,
+        version: 2,
       },
       products: STATE.products,
       customers: STATE.customers,
       transactions: STATE.transactions,
       shifts: STATE.shifts,
       categories: ProductsModule.getCategories(),
+      online_orders: onlineOrders,
     };
   },
 
   /** Membuat & mengunduh file JSON cadangan */
-  downloadBackup() {
+  async downloadBackup() {
     try {
-      const data = this._collectData();
+      const data = await this._collectData();
       const json = JSON.stringify(data, null, 2);
       const dateStr = new Date().toISOString().slice(0, 10);
       const filename = `backup-${CONFIG.STORE.NAME.toLowerCase().replace(/\s+/g, '-')}-${dateStr}.json`;
@@ -123,7 +131,7 @@ const BackupModule = {
   async _runRestore(data) {
     Utils.showToast('Memulihkan data, mohon tunggu...', 'info', 5000);
 
-    let added = { products: 0, customers: 0, transactions: 0, shifts: 0 };
+    let added = { products: 0, customers: 0, transactions: 0, shifts: 0, onlineOrders: 0 };
 
     // ---------- PRODUK: skip kalau barcode atau nama sudah ada ----------
     for (const p of (data.products || [])) {
@@ -185,6 +193,17 @@ const BackupModule = {
       }
     }
 
+    // ---------- PESANAN ONLINE: selalu ditambahkan sebagai catatan baru ----------
+    for (const o of (data.online_orders || [])) {
+      const { id, ...payload } = o;
+      try {
+        await API.insert(CONFIG.TABLES.ONLINE_ORDERS, payload);
+        added.onlineOrders++;
+      } catch (err) {
+        console.warn('[Backup] Gagal restore pesanan online', err.message);
+      }
+    }
+
     // ---------- KATEGORI: gabung tanpa duplikat ----------
     if (Array.isArray(data.categories)) {
       const merged = [...new Set([...ProductsModule.getCategories(), ...data.categories])];
@@ -193,8 +212,8 @@ const BackupModule = {
 
     ModalManager.close();
     Utils.showToast(
-      `Pulihkan selesai: +${added.products} produk, +${added.customers} pelanggan, +${added.transactions} transaksi, +${added.shifts} shift`,
-      'success', 6000
+      `Pulihkan selesai: +${added.products} produk, +${added.customers} pelanggan, +${added.transactions} transaksi, +${added.shifts} shift, +${added.onlineOrders} pesanan online`,
+      'success', 7000
     );
 
     // Muat ulang data dari server biar tampilan ikut update — pakai
@@ -206,6 +225,7 @@ const BackupModule = {
       await AppMain._loadCustomers();
       await AppMain._loadTransactions();
       await AppMain._loadShifts();
+      await OnlineOrdersModule.load();
     } catch (err) {
       console.warn('[Backup] Gagal muat ulang data setelah restore:', err.message);
     }
