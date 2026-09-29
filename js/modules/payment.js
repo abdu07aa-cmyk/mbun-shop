@@ -98,6 +98,15 @@ const PaymentModule = {
     } else if (this.selectedMethod === 'qris') {
       container.innerHTML = `<div class="qris-display"><canvas id="qrisCanvas"></canvas><p>Pindai untuk membayar ${Utils.formatCurrency(STATE.cartTotal)}</p></div>`;
       this._renderQrCode();
+    } else if (this.selectedMethod === 'transfer') {
+      const bank = CONFIG.STORE.BANK_ACCOUNT;
+      container.innerHTML = `
+        <div style="text-align:center; padding: var(--space-4); background: var(--color-surface-alt); border-radius: var(--radius-md); margin-bottom: var(--space-3);">
+          <div style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">Transfer ke ${Utils.escapeHtml(bank.BANK)}</div>
+          <div style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); letter-spacing: 0.04em;">${Utils.escapeHtml(bank.NUMBER)}</div>
+          <div style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">a.n. ${Utils.escapeHtml(bank.HOLDER)}</div>
+        </div>
+        <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">Konfirmasi setelah pelanggan menyelesaikan pembayaran via transfer.</p>`;
     } else {
       container.innerHTML = `<p style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">Konfirmasi setelah pelanggan menyelesaikan pembayaran via ${this.selectedMethod}.</p>`;
     }
@@ -328,6 +337,8 @@ const PaymentModule = {
       ? `Tunai: ${Utils.formatCurrency(PaymentModule.cashReceived)}\nKembalian: ${Utils.formatCurrency(t.change || 0)}`
       : `Metode: ${t.payment_method.toUpperCase()}`;
 
+    const bank = CONFIG.STORE.BANK_ACCOUNT;
+
     return [
       `*${CONFIG.STORE.NAME}*`,
       CONFIG.STORE.TAGLINE,
@@ -340,6 +351,9 @@ const PaymentModule = {
       `Diskon: -${Utils.formatCurrency(t.discount || 0)}`,
       `*TOTAL: ${Utils.formatCurrency(t.total_amount)}*`,
       paymentLines,
+      '------------------------------',
+      `Transfer ke: ${bank.BANK} ${bank.NUMBER}`,
+      `a.n. ${bank.HOLDER}`,
       '',
       'Terima kasih sudah berbelanja! 🙏',
     ].join('\n');
@@ -350,6 +364,8 @@ const PaymentModule = {
       const product = STATE.products.find(p => String(p.id) === String(item.product_id));
       return `<div class="receipt-row"><span>${Utils.escapeHtml(product?.name || 'Produk')} x${item.quantity}</span><span>${Utils.formatCurrency(item.price * item.quantity)}</span></div>`;
     }).join('');
+
+    const bank = CONFIG.STORE.BANK_ACCOUNT;
 
     return `
       <div class="receipt">
@@ -369,6 +385,12 @@ const PaymentModule = {
           <div class="receipt-row"><span>Tunai</span><span>${Utils.formatCurrency(PaymentModule.cashReceived)}</span></div>
           <div class="receipt-row"><span>Kembalian</span><span>${Utils.formatCurrency(t.change || 0)}</span></div>
         ` : `<div class="receipt-row"><span>Metode</span><span>${Utils.escapeHtml(t.payment_method.toUpperCase())}</span></div>`}
+        <div class="receipt-divider"></div>
+        <div style="text-align:center; font-size: var(--font-size-sm);">
+          <div>Pembayaran via transfer:</div>
+          <strong>${Utils.escapeHtml(bank.BANK)} ${Utils.escapeHtml(bank.NUMBER)}</strong><br>
+          <small>a.n. ${Utils.escapeHtml(bank.HOLDER)}</small>
+        </div>
         <div class="receipt-header" style="border-bottom:none; border-top: 1px dashed var(--color-border); margin-top: var(--space-3); padding-top: var(--space-3);">
           Terima kasih sudah berbelanja! 🙏
         </div>
