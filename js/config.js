@@ -33,16 +33,18 @@ const CONFIG = {
   },
 
   /* ---------- INFORMASI TOKO ---------- */
-    STORE: {
+  STORE: {
     NAME: 'MBUN COLLECTION',
     TAGLINE: 'Belanja Hemat, Hidup Nikmat',
     ADDRESS: 'Jl. Al-Huda, Kp. Rawa Sapi, Jatimulya, Tambun Selatan',
     PHONE: '0897-3488-963',
+    // Rekening untuk pembayaran transfer — tampil di struk
     BANK_ACCOUNT: {
       BANK: 'BCA',
       NUMBER: '8415597980',
       HOLDER: 'UMMI FATMAH',
     },
+  },
 
   /* ---------- METODE PEMBAYARAN ---------- */
   PAYMENT_METHODS: [
