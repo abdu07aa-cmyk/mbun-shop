@@ -211,7 +211,7 @@ const AppMain = {
       { icon: 'fa-receipt',           color: 'is-green',  value: todayTrx.length,                    label: 'Transaksi Hari Ini' },
       { icon: 'fa-boxes-stacked',     color: 'is-orange', value: STATE.products.length,               label: 'Total Produk' },
       { icon: 'fa-triangle-exclamation', color: 'is-red', value: lowStock,                            label: 'Stok Menipis/Habis' },
-      { icon: 'fa-book',              color: 'is-red',    value: Utils.formatCurrency(DebtsModule.totalOutstanding()), label: 'Piutang Pelanggan' },
+      { icon: 'fa-book',              color: 'is-red',    value: Utils.formatCurrency(typeof DebtsModule !== 'undefined' ? DebtsModule.totalOutstanding() : 0), label: 'Piutang Pelanggan' },
     ];
 
     grid.innerHTML = stats.map(s => `
@@ -238,6 +238,14 @@ const AppMain = {
     }
   },
 
+  /** Badge status transaksi (Lunas/Hutang/Cicilan/Retur); aman kalau modul hutang tidak termuat */
+  _statusBadge(t) {
+    if (typeof DebtsModule !== 'undefined') return DebtsModule.statusBadgeHtml(t);
+    return t.total_amount < 0
+      ? '<span class="badge badge-danger">Retur</span>'
+      : '<span class="badge badge-success">Lunas</span>';
+  },
+
   renderRecentTransactionsTable() {
     const tbody = document.querySelector('#recentTransactionsTable tbody');
     if (!tbody) return;
@@ -256,7 +264,7 @@ const AppMain = {
         <td>${Utils.escapeHtml(t.customer_name || 'Umum')}</td>
         <td>${Utils.escapeHtml(t.payment_method || '-')}</td>
         <td>${Utils.formatCurrency(t.total_amount)}</td>
-        <td>${DebtsModule.statusBadgeHtml(t)}</td>
+        <td>${AppMain._statusBadge(t)}</td>
       </tr>`).join('');
   },
 
@@ -289,7 +297,7 @@ const AppMain = {
         <td>${t.items ? t.items.length : '-'}</td>
         <td>${Utils.escapeHtml(t.payment_method || '-')}</td>
         <td>${Utils.formatCurrency(t.total_amount)}</td>
-        <td>${DebtsModule.statusBadgeHtml(t)}</td>
+        <td>${AppMain._statusBadge(t)}</td>
         <td style="display:flex; gap: var(--space-2);">
           <button class="icon-btn" data-view-transaction="${t.id}" title="Detail Transaksi">
             <i class="fa-solid fa-eye"></i>
