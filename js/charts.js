@@ -205,4 +205,4 @@ const Charts = {
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 5);
   },
-};/* 
+};
