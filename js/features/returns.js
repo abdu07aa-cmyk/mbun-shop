@@ -4,6 +4,8 @@
    menentukan item & jumlah yang dikembalikan, lalu sistem
    akan mengembalikan stok produk dan mencatat transaksi
    retur sebagai nominal negatif agar laporan tetap akurat.
+   Transaksi yang masih ada hutangnya tidak bisa diretur
+   sebelum hutangnya diselesaikan.
    ===================================================== */
 
 const ReturnsModule = {
@@ -54,7 +56,10 @@ const ReturnsModule = {
       resultEl.innerHTML = `<span class="badge badge-warning">Transaksi ini sudah pernah diretur sebelumnya</span>`;
       return;
     }
-         if (transaction.payment_method === 'debt' && transaction.payment_status !== 'paid') {
+
+    // Transaksi hutang yang belum lunas tidak boleh diretur dulu,
+    // supaya hitungan piutang & kas tidak kacau.
+    if (transaction.payment_method === 'debt' && transaction.payment_status !== 'paid') {
       resultEl.innerHTML = `<span class="badge badge-warning">Transaksi ini masih ada hutang. Selesaikan pembayaran dulu sebelum diretur.</span>`;
       return;
     }
