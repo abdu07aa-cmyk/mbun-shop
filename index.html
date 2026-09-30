@@ -19,14 +19,14 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <!-- ===== CSS MODULAR (urutan penting: variables harus paling awal) ===== -->
-  <link rel="stylesheet" href="css/variables.css?v=20260718b">
-  <link rel="stylesheet" href="css/base.css?v=20260718b">
-  <link rel="stylesheet" href="css/components.css?v=20260718b">
-  <link rel="stylesheet" href="css/layout.css?v=20260718b">
-  <link rel="stylesheet" href="css/modals.css?v=20260718b">
-  <link rel="stylesheet" href="css/animations.css?v=20260718b">
-  <link rel="stylesheet" href="css/responsive.css?v=20260718b">
-  <link rel="stylesheet" href="css/print.css?v=20260718b" media="print">
+  <link rel="stylesheet" href="css/variables.css?v=20260718c">
+  <link rel="stylesheet" href="css/base.css?v=20260718c">
+  <link rel="stylesheet" href="css/components.css?v=20260718c">
+  <link rel="stylesheet" href="css/layout.css?v=20260718c">
+  <link rel="stylesheet" href="css/modals.css?v=20260718c">
+  <link rel="stylesheet" href="css/animations.css?v=20260718c">
+  <link rel="stylesheet" href="css/responsive.css?v=20260718c">
+  <link rel="stylesheet" href="css/print.css?v=20260718c" media="print">
 </head>
 <body data-theme="light">
 
@@ -73,6 +73,10 @@
         <button class="nav-item" data-view="pesanan-online" style="position:relative;">
           <i class="fa-solid fa-cart-shopping"></i><span>Pesanan Online</span>
           <span id="onlineOrdersBadge" class="badge-dot" style="position:absolute; top:6px; left:28px; display:none;"></span>
+        </button>
+        <button class="nav-item" data-view="hutang" style="position:relative;">
+          <i class="fa-solid fa-book"></i><span>Hutang</span>
+          <span id="debtBadge" class="badge-dot" style="position:absolute; top:6px; left:28px; display:none;"></span>
         </button>
         <button class="nav-item" data-view="stok">
           <i class="fa-solid fa-warehouse"></i><span>Stok Barang</span>
@@ -350,6 +354,27 @@
           </div>
         </section>
 
+        <!-- ====== VIEW: HUTANG ====== -->
+        <section class="view" id="view-hutang" data-view="hutang" hidden>
+          <div class="view-header">
+            <div>
+              <h2>Catatan Hutang</h2>
+              <p class="view-subtitle">Hutang pelanggan, cicilan, dan pengingat pembayaran</p>
+            </div>
+          </div>
+          <div class="stat-grid" id="debtStatGrid"></div>
+          <div class="card">
+            <div class="table-wrap">
+              <table class="data-table" id="debtTable">
+                <thead>
+                  <tr><th>Pelanggan</th><th>Transaksi</th><th>Sisa Hutang</th><th>Hutang Tertua</th><th>Status</th><th>Aksi</th></tr>
+                </thead>
+                <tbody><!-- diisi dinamis via js/features/debts.js --></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         <!-- ====== VIEW: STOK ====== -->
         <section class="view" id="view-stok" data-view="stok" hidden>
           <div class="view-header">
@@ -553,31 +578,32 @@
   <!-- ===================================================== -->
   <!-- APP SCRIPTS (urutan dependensi penting)               -->
   <!-- ===================================================== -->
-  <script src="js/config.js?v=20260718b"></script>
-  <script src="js/state.js?v=20260718b"></script>
-  <script src="js/utils.js?v=20260718b"></script>
-  <script src="js/api.js?v=20260718b"></script>
-  <script src="js/charts.js?v=20260718b"></script>
+  <script src="js/config.js?v=20260718c"></script>
+  <script src="js/state.js?v=20260718c"></script>
+  <script src="js/utils.js?v=20260718c"></script>
+  <script src="js/api.js?v=20260718c"></script>
+  <script src="js/charts.js?v=20260718c"></script>
 
-  <script src="js/modules/products.js?v=20260718b"></script>
-  <script src="js/modules/cart.js?v=20260718b"></script>
-  <script src="js/modules/payment.js?v=20260718b"></script>
-  <script src="js/modules/stock.js?v=20260718b"></script>
-  <script src="js/modules/auth.js?v=20260718b"></script>
+  <script src="js/modules/products.js?v=20260718c"></script>
+  <script src="js/modules/cart.js?v=20260718c"></script>
+  <script src="js/modules/payment.js?v=20260718c"></script>
+  <script src="js/modules/stock.js?v=20260718c"></script>
+  <script src="js/modules/auth.js?v=20260718c"></script>
 
-  <script src="js/features/export.js?v=20260718b"></script>
-  <script src="js/features/offline.js?v=20260718b"></script>
-  <script src="js/features/barcode.js?v=20260718b"></script>
-  <script src="js/features/hold-cart.js?v=20260718b"></script>
-  <script src="js/features/notifications.js?v=20260718b"></script>
-  <script src="js/features/backup.js?v=20260718b"></script>
-  <script src="js/features/online-orders.js?v=20260718b"></script>
-  <script src="js/features/shift.js?v=20260718b"></script>
-  <script src="js/features/split-payment.js?v=20260718b"></script>
-  <script src="js/features/returns.js?v=20260718b"></script>
+  <script src="js/features/export.js?v=20260718c"></script>
+  <script src="js/features/offline.js?v=20260718c"></script>
+  <script src="js/features/barcode.js?v=20260718c"></script>
+  <script src="js/features/hold-cart.js?v=20260718c"></script>
+  <script src="js/features/notifications.js?v=20260718c"></script>
+  <script src="js/features/backup.js?v=20260718c"></script>
+  <script src="js/features/online-orders.js?v=20260718c"></script>
+  <script src="js/features/shift.js?v=20260718c"></script>
+  <script src="js/features/split-payment.js?v=20260718c"></script>
+  <script src="js/features/returns.js?v=20260718c"></script>
+  <script src="js/features/debts.js?v=20260718c"></script>
 
-  <script src="js/emoji-picker.js?v=20260718b"></script>
-  <script src="js/events.js?v=20260718b"></script>
-  <script src="js/main.js?v=20260718b"></script>
+  <script src="js/emoji-picker.js?v=20260718c"></script>
+  <script src="js/events.js?v=20260718c"></script>
+  <script src="js/main.js?v=20260718c"></script>
 </body>
 </html>
