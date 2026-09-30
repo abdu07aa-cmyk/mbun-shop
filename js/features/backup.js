@@ -11,7 +11,7 @@ const BackupModule = {
   /** Mengumpulkan seluruh data aplikasi yang sedang dimuat di STATE */
   async _collectData() {
     // Pastikan catatan pembayaran hutang terbaru ikut tercadangkan
-    await DebtsModule.load();
+    if (typeof DebtsModule !== 'undefined') await DebtsModule.load();
 
     let onlineOrders = [];
     try {
@@ -32,7 +32,7 @@ const BackupModule = {
       shifts: STATE.shifts,
       categories: ProductsModule.getCategories(),
       online_orders: onlineOrders,
-      debt_payments: DebtsModule.payments,
+      debt_payments: typeof DebtsModule !== 'undefined' ? DebtsModule.payments : [],
     };
   },
 
@@ -247,7 +247,7 @@ const BackupModule = {
       await AppMain._loadTransactions();
       await AppMain._loadShifts();
       await OnlineOrdersModule.load();
-      await DebtsModule.load();
+      if (typeof DebtsModule !== 'undefined') await DebtsModule.load();
     } catch (err) {
       console.warn('[Backup] Gagal muat ulang data setelah restore:', err.message);
     }
