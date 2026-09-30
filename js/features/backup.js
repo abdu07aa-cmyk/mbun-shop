@@ -1,17 +1,19 @@
 /* =====================================================
    MBUN COLLECTION — FEATURES/BACKUP.JS
    Fitur cadangan data: menggabungkan semua data penting
-   (produk, pelanggan, transaksi + item, shift) jadi satu
-   file JSON yang bisa didownload pengguna sebagai jaga-jaga.
-   Ini BUKAN restore otomatis — kalau perlu dipulihkan,
-   datanya perlu diimpor manual ke Supabase.
+   (produk, pelanggan, transaksi + item, shift, pesanan
+   online, pembayaran hutang) jadi satu file JSON yang bisa
+   didownload pengguna sebagai jaga-jaga. Pemulihan hanya
+   MENAMBAHKAN data yang belum ada, tidak menimpa apa pun.
    ===================================================== */
 
 const BackupModule = {
   /** Mengumpulkan seluruh data aplikasi yang sedang dimuat di STATE */
   async _collectData() {
-       await DebtsModule.load();
-     let onlineOrders = [];
+    // Pastikan catatan pembayaran hutang terbaru ikut tercadangkan
+    await DebtsModule.load();
+
+    let onlineOrders = [];
     try {
       onlineOrders = await API.fetchAll(CONFIG.TABLES.ONLINE_ORDERS, { order: 'created_at.desc' });
     } catch (err) {
@@ -22,7 +24,7 @@ const BackupModule = {
       backup_info: {
         store_name: CONFIG.STORE.NAME,
         created_at: new Date().toISOString(),
-        version: 2,
+        version: 3,
       },
       products: STATE.products,
       customers: STATE.customers,
@@ -30,7 +32,7 @@ const BackupModule = {
       shifts: STATE.shifts,
       categories: ProductsModule.getCategories(),
       online_orders: onlineOrders,
-     debt_payments: DebtsModule.payments,
+      debt_payments: DebtsModule.payments,
     };
   },
 
@@ -97,6 +99,7 @@ const BackupModule = {
           customers: (parsed.customers || []).length,
           transactions: (parsed.transactions || []).length,
           shifts: (parsed.shifts || []).length,
+          debtPayments: (parsed.debt_payments || []).length,
         };
 
         if (preview) {
@@ -105,7 +108,8 @@ const BackupModule = {
               <p style="font-size: var(--font-size-sm); margin-bottom: var(--space-2);"><strong>Isi file ini:</strong></p>
               <p style="font-size: var(--font-size-sm);">
                 📦 ${counts.products} produk &middot; 👤 ${counts.customers} pelanggan &middot;
-                🧾 ${counts.transactions} transaksi &middot; ⏰ ${counts.shifts} shift
+                🧾 ${counts.transactions} transaksi &middot; ⏰ ${counts.shifts} shift &middot;
+                📒 ${counts.debtPayments} pembayaran hutang
               </p>
             </div>`;
         }
@@ -133,7 +137,7 @@ const BackupModule = {
   async _runRestore(data) {
     Utils.showToast('Memulihkan data, mohon tunggu...', 'info', 5000);
 
-    let added = { products: 0, customers: 0, transactions: 0, shifts: 0, onlineOrders: 0 };
+    let added = { products: 0, customers: 0, transactions: 0, shifts: 0, onlineOrders: 0, debtPayments: 0 };
 
     // ---------- PRODUK: skip kalau barcode atau nama sudah ada ----------
     for (const p of (data.products || [])) {
@@ -176,9 +180,9 @@ const BackupModule = {
       }
     }
 
-        // ---------- TRANSAKSI + ITEM: insert transaksi dulu, ambil id baru,
+    // ---------- TRANSAKSI + ITEM: insert transaksi dulu, ambil id baru,
     // baru insert item-itemnya dengan transaction_id yang baru ----------
-    const trxIdMap = {};
+    const trxIdMap = {}; // id transaksi lama -> id transaksi baru
     for (const t of (data.transactions || [])) {
       const { id, items, ...payload } = t;
       try {
@@ -200,10 +204,11 @@ const BackupModule = {
     // ---------- PEMBAYARAN HUTANG: sambungkan ke id transaksi yang baru ----------
     for (const p of (data.debt_payments || [])) {
       const newTrxId = trxIdMap[String(p.transaction_id)];
-      if (!newTrxId) continue;
+      if (!newTrxId) continue; // transaksinya tidak ikut dipulihkan, lewati
       const { id, ...payload } = p;
       try {
         await API.insert(CONFIG.TABLES.DEBT_PAYMENTS, { ...payload, transaction_id: newTrxId });
+        added.debtPayments++;
       } catch (err) {
         console.warn('[Backup] Gagal restore pembayaran hutang', err.message);
       }
@@ -228,7 +233,7 @@ const BackupModule = {
 
     ModalManager.close();
     Utils.showToast(
-      `Pulihkan selesai: +${added.products} produk, +${added.customers} pelanggan, +${added.transactions} transaksi, +${added.shifts} shift, +${added.onlineOrders} pesanan online`,
+      `Pulihkan selesai: +${added.products} produk, +${added.customers} pelanggan, +${added.transactions} transaksi, +${added.shifts} shift, +${added.onlineOrders} pesanan online, +${added.debtPayments} pembayaran hutang`,
       'success', 7000
     );
 
