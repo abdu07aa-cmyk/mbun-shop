@@ -210,7 +210,13 @@ const PaymentModule = {
       warning = `<span class="badge badge-danger">Melebihi batas hutang ${Utils.formatCurrency(max)} per pelanggan</span>`;
     }
 
+    const overdueSummary = DebtsModule.summaryFor(customer.name);
+    const overdueNote = overdueSummary.overdueCount > 0
+      ? `<div style="margin-bottom: var(--space-2);"><span class="badge badge-danger">⚠️ Ada hutang lewat jatuh tempo ${Utils.formatCurrency(overdueSummary.overdueAmount)}</span></div>`
+      : '';
+
     info.innerHTML = `
+      ${overdueNote}
       <div class="summary-row"><span>Hutang sebelumnya</span><span>${Utils.formatCurrency(existing)}</span></div>
       <div class="summary-row"><span>Hutang baru (setelah DP)</span><span>${Utils.formatCurrency(newDebt)}</span></div>
       <div class="summary-row summary-row-total"><span>Total hutang jadi</span><span>${Utils.formatCurrency(existing + newDebt)}</span></div>
