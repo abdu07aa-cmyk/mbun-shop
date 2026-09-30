@@ -30,6 +30,7 @@ const CONFIG = {
     STOCK_MOVEMENTS: 'stock_movements',
     HELD_CARTS: 'held_carts',
     ONLINE_ORDERS: 'online_orders',
+    DEBT_PAYMENTS: 'debt_payments',
   },
 
   /* ---------- INFORMASI TOKO ---------- */
@@ -53,6 +54,13 @@ const CONFIG = {
     { id: 'transfer', label: 'Transfer Bank', icon: 'fa-building-columns' },
     { id: 'ewallet', label: 'E-Wallet', icon: 'fa-wallet' },
   ],
+
+  /* ---------- PENGATURAN HUTANG ---------- */
+  DEBT: {
+    // Batas total hutang aktif per pelanggan (Rupiah).
+    // Isi 0 kalau tidak ingin ada batas.
+    MAX_PER_CUSTOMER: 500000,
+  },
 
   /* ---------- KODE DISKON BAWAAN ---------- */
   DISCOUNT_CODES: {
