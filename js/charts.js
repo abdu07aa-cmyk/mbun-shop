@@ -1,4 +1,4 @@
-/* =====================================================
+=====================================================
    WARUNGKITA PRO MAX — CHARTS.JS
    Inisialisasi dan update semua grafik Chart.js yang
    dipakai di Dashboard dan halaman Laporan. Data yang
@@ -205,4 +205,4 @@ const Charts = {
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 5);
   },
-};
+};/* 
