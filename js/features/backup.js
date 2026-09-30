@@ -10,7 +10,8 @@
 const BackupModule = {
   /** Mengumpulkan seluruh data aplikasi yang sedang dimuat di STATE */
   async _collectData() {
-    let onlineOrders = [];
+       await DebtsModule.load();
+     let onlineOrders = [];
     try {
       onlineOrders = await API.fetchAll(CONFIG.TABLES.ONLINE_ORDERS, { order: 'created_at.desc' });
     } catch (err) {
@@ -29,6 +30,7 @@ const BackupModule = {
       shifts: STATE.shifts,
       categories: ProductsModule.getCategories(),
       online_orders: onlineOrders,
+     debt_payments: DebtsModule.payments,
     };
   },
 
@@ -174,12 +176,14 @@ const BackupModule = {
       }
     }
 
-    // ---------- TRANSAKSI + ITEM: insert transaksi dulu, ambil id baru,
+        // ---------- TRANSAKSI + ITEM: insert transaksi dulu, ambil id baru,
     // baru insert item-itemnya dengan transaction_id yang baru ----------
+    const trxIdMap = {};
     for (const t of (data.transactions || [])) {
       const { id, items, ...payload } = t;
       try {
         const [newTrx] = await API.transactions.create(payload);
+        if (newTrx) trxIdMap[String(id)] = String(newTrx.id);
         if (newTrx && Array.isArray(items) && items.length > 0) {
           const newItems = items.map(item => {
             const { id: itemId, transaction_id, ...itemPayload } = item;
@@ -190,6 +194,18 @@ const BackupModule = {
         added.transactions++;
       } catch (err) {
         console.warn('[Backup] Gagal restore transaksi', err.message);
+      }
+    }
+
+    // ---------- PEMBAYARAN HUTANG: sambungkan ke id transaksi yang baru ----------
+    for (const p of (data.debt_payments || [])) {
+      const newTrxId = trxIdMap[String(p.transaction_id)];
+      if (!newTrxId) continue;
+      const { id, ...payload } = p;
+      try {
+        await API.insert(CONFIG.TABLES.DEBT_PAYMENTS, { ...payload, transaction_id: newTrxId });
+      } catch (err) {
+        console.warn('[Backup] Gagal restore pembayaran hutang', err.message);
       }
     }
 
@@ -226,6 +242,7 @@ const BackupModule = {
       await AppMain._loadTransactions();
       await AppMain._loadShifts();
       await OnlineOrdersModule.load();
+      await DebtsModule.load();
     } catch (err) {
       console.warn('[Backup] Gagal muat ulang data setelah restore:', err.message);
     }
