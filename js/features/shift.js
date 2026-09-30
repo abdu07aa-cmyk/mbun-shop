@@ -34,7 +34,7 @@ const ShiftModule = {
     const shift = STATE.currentShift;
     const cashTransactions = STATE.transactions.filter(t => t.shift_id === shift.id && t.payment_method === 'cash');
     const cashSales = cashTransactions.reduce((sum, t) => sum + (Number(t.total_amount) || 0), 0)
-      + DebtsModule.cashCollectedInShift(shift.id);
+      + (typeof DebtsModule !== 'undefined' ? DebtsModule.cashCollectedInShift(shift.id) : 0);
     const expectedCash = Number(shift.initial_cash) + cashSales;
 
     return `
@@ -130,7 +130,7 @@ const ShiftModule = {
     const shift = STATE.currentShift;
     const cashTransactions = STATE.transactions.filter(t => t.shift_id === shift.id && t.payment_method === 'cash');
     const cashSales = cashTransactions.reduce((sum, t) => sum + (Number(t.total_amount) || 0), 0)
-      + DebtsModule.cashCollectedInShift(shift.id);
+      + (typeof DebtsModule !== 'undefined' ? DebtsModule.cashCollectedInShift(shift.id) : 0);
     const expectedCash = Number(shift.initial_cash) + cashSales;
 
     ModalManager.open('closeShift', {
