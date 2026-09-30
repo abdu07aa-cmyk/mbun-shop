@@ -408,15 +408,22 @@ const AppMain = {
     );
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr class="table-empty-row"><td colspan="5">${q ? 'Tidak ada pelanggan yang cocok dengan pencarian.' : 'Belum ada data pelanggan.'}</td></tr>`;
+      tbody.innerHTML = `<tr class="table-empty-row"><td colspan="6">${q ? 'Tidak ada pelanggan yang cocok dengan pencarian.' : 'Belum ada data pelanggan.'}</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = filtered.map(c => `
+    tbody.innerHTML = filtered.map(c => {
+      const debt = typeof DebtsModule !== 'undefined' ? DebtsModule.summaryFor(c.name) : null;
+      const debtCell = debt && debt.total > 0
+        ? `<span class="badge ${debt.overdueCount > 0 ? 'badge-danger' : 'badge-warning'}">${Utils.formatCurrency(debt.total)}${debt.overdueCount > 0 ? ' (lewat tempo)' : ''}</span>`
+        : '<span style="color: var(--color-text-muted);">-</span>';
+
+      return `
       <tr>
         <td>${Utils.escapeHtml(c.name)}</td>
         <td>${Utils.escapeHtml(c.phone || '-')}</td>
         <td><span class="badge badge-info">${c.points || 0} poin</span></td>
+        <td>${debtCell}</td>
         <td>${Utils.formatDate(c.created_at)}</td>
         <td>
           <button class="icon-btn" data-view-customer-history="${c.id}" aria-label="Riwayat Belanja" title="Riwayat Belanja">
@@ -426,7 +433,8 @@ const AppMain = {
             <i class="fa-solid fa-pen"></i>
           </button>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
 
     Utils.qsa('[data-view-customer-history]').forEach(btn => {
       btn.addEventListener('click', () => this.openCustomerHistoryModal(btn.dataset.viewCustomerHistory));
