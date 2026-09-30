@@ -1,9 +1,10 @@
 /* =====================================================
    WARUNGKITA PRO MAX — MODULES/PAYMENT.JS
    Mengelola alur pembayaran: pemilihan metode bayar,
-   tampilan QRIS, perhitungan kembalian tunai, penyimpanan
-   transaksi ke database, pengurangan stok produk, dan
-   penampilan struk digital setelah transaksi berhasil.
+   tampilan QRIS, perhitungan kembalian tunai, pencatatan
+   HUTANG (bayar nanti + DP), penyimpanan transaksi ke
+   database, pengurangan stok produk, dan penampilan struk
+   digital setelah transaksi berhasil.
    ===================================================== */
 
 const PaymentModule = {
@@ -11,6 +12,16 @@ const PaymentModule = {
   selectedMethod: 'cash',
   /** Nominal uang tunai yang diterima dari pelanggan (untuk hitung kembalian) */
   cashReceived: 0,
+  /** Data hutang yang sudah divalidasi: { dp, dpMethod, dueDate, note } */
+  _debt: null,
+
+  /** Metode di modal kasir = metode biasa + "Hutang" */
+  _methods() {
+    return [
+      ...CONFIG.PAYMENT_METHODS,
+      { id: 'debt', label: 'Hutang', icon: 'fa-book' },
+    ];
+  },
 
   /* ===================================================
      MODAL PEMBAYARAN
@@ -29,6 +40,7 @@ const PaymentModule = {
 
     this.selectedMethod = 'cash';
     this.cashReceived = 0;
+    this._debt = null;
 
     ModalManager.open('payment', {
       title: 'Proses Pembayaran',
@@ -52,7 +64,7 @@ const PaymentModule = {
       </div>
 
       <div class="payment-method-grid" id="paymentMethodGrid">
-        ${CONFIG.PAYMENT_METHODS.map(m => `
+        ${this._methods().map(m => `
           <button class="payment-method-option ${m.id === this.selectedMethod ? 'is-selected' : ''}" data-payment-method="${m.id}">
             <i class="fa-solid ${m.icon}"></i>
             <span>${m.label}</span>
@@ -75,7 +87,7 @@ const PaymentModule = {
     this._renderMethodDetail();
   },
 
-  /** Merender input tambahan sesuai metode bayar yang dipilih (tunai/QRIS/dll) */
+  /** Merender input tambahan sesuai metode bayar yang dipilih (tunai/QRIS/hutang/dll) */
   _renderMethodDetail() {
     const container = document.getElementById('paymentMethodDetail');
     if (!container) return;
@@ -107,9 +119,127 @@ const PaymentModule = {
           <div style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">a.n. ${Utils.escapeHtml(bank.HOLDER)}</div>
         </div>
         <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">Konfirmasi setelah pelanggan menyelesaikan pembayaran via transfer.</p>`;
+    } else if (this.selectedMethod === 'debt') {
+      this._renderDebtDetail(container);
     } else {
       container.innerHTML = `<p style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">Konfirmasi setelah pelanggan menyelesaikan pembayaran via ${this.selectedMethod}.</p>`;
     }
+  },
+
+  /* ===================================================
+     HUTANG (BAYAR NANTI)
+     =================================================== */
+
+  _renderDebtDetail(container) {
+    if (STATE.customers.length === 0) {
+      container.innerHTML = `<p style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">Belum ada pelanggan terdaftar. Tambahkan dulu di menu Pelanggan supaya hutang bisa dicatat atas nama pelanggan.</p>`;
+      return;
+    }
+
+    const activeId = STATE.activeCustomer ? String(STATE.activeCustomer.id) : '';
+
+    container.innerHTML = `
+      <div class="form-grid" style="grid-template-columns: 1fr;">
+        <label class="form-field">
+          <span>Pelanggan *</span>
+          <select id="debtCustomerSelect" class="select-field">
+            <option value="">-- Pilih pelanggan --</option>
+            ${STATE.customers.map(c => `
+              <option value="${c.id}" ${String(c.id) === activeId ? 'selected' : ''}>
+                ${Utils.escapeHtml(c.name)}${c.phone ? ' — ' + Utils.escapeHtml(c.phone) : ''}
+              </option>`).join('')}
+          </select>
+        </label>
+        <label class="form-field">
+          <span>DP / Bayar Sebagian (opsional)</span>
+          <div style="display:flex; gap: var(--space-2);">
+            <input type="number" id="debtDpInput" placeholder="0" min="0" style="flex:1;">
+            <select id="debtDpMethod" class="select-field" style="width:auto;">
+              ${CONFIG.PAYMENT_METHODS.map(m => `<option value="${m.id}">${m.label}</option>`).join('')}
+            </select>
+          </div>
+        </label>
+        <label class="form-field">
+          <span>Jatuh Tempo (opsional)</span>
+          <input type="date" id="debtDueDate">
+        </label>
+        <label class="form-field">
+          <span>Catatan (opsional)</span>
+          <input type="text" id="debtNoteInput" placeholder="mis. janji bayar akhir bulan">
+        </label>
+      </div>
+      <div id="debtInfo" style="margin-top: var(--space-3);"></div>`;
+
+    document.getElementById('debtCustomerSelect')?.addEventListener('change', (e) => {
+      const id = e.target.value;
+      STATE.activeCustomer = id ? (STATE.customers.find(c => String(c.id) === id) || null) : null;
+      CartModule._syncCustomerLabel();
+      this._updateDebtInfo();
+    });
+    document.getElementById('debtDpInput')?.addEventListener('input', () => this._updateDebtInfo());
+
+    this._updateDebtInfo();
+  },
+
+  /** Menampilkan ringkasan hutang + peringatan (DP kebesaran / lewat batas) */
+  _updateDebtInfo() {
+    const info = document.getElementById('debtInfo');
+    if (!info) return;
+
+    const customer = STATE.activeCustomer;
+    if (!customer) {
+      info.innerHTML = `<span class="badge badge-warning">Pilih pelanggan dulu</span>`;
+      return;
+    }
+
+    const total = STATE.cartTotal;
+    const dp = Number(document.getElementById('debtDpInput')?.value) || 0;
+    const newDebt = Math.max(0, total - dp);
+    const existing = DebtsModule.outstandingFor(customer.name);
+    const max = Number(CONFIG.DEBT?.MAX_PER_CUSTOMER) || 0;
+
+    let warning = '';
+    if (dp >= total) {
+      warning = `<span class="badge badge-warning">DP sudah menutup total, pakai metode pembayaran biasa</span>`;
+    } else if (max > 0 && existing + newDebt > max) {
+      warning = `<span class="badge badge-danger">Melebihi batas hutang ${Utils.formatCurrency(max)} per pelanggan</span>`;
+    }
+
+    info.innerHTML = `
+      <div class="summary-row"><span>Hutang sebelumnya</span><span>${Utils.formatCurrency(existing)}</span></div>
+      <div class="summary-row"><span>Hutang baru (setelah DP)</span><span>${Utils.formatCurrency(newDebt)}</span></div>
+      <div class="summary-row summary-row-total"><span>Total hutang jadi</span><span>${Utils.formatCurrency(existing + newDebt)}</span></div>
+      ${warning ? `<div style="margin-top: var(--space-2);">${warning}</div>` : ''}`;
+  },
+
+  /**
+   * Membaca & memvalidasi input hutang dari modal.
+   * @returns {string|null} pesan error, atau null kalau valid
+   */
+  _readDebtInput() {
+    const customer = STATE.activeCustomer;
+    if (!customer) return 'Pilih pelanggan dulu untuk mencatat hutang';
+
+    const total = STATE.cartTotal;
+    const dp = Number(document.getElementById('debtDpInput')?.value) || 0;
+
+    if (dp < 0) return 'DP tidak boleh negatif';
+    if (dp >= total) return 'DP sudah menutup total tagihan, gunakan metode pembayaran biasa';
+
+    const newDebt = total - dp;
+    const existing = DebtsModule.outstandingFor(customer.name);
+    const max = Number(CONFIG.DEBT?.MAX_PER_CUSTOMER) || 0;
+    if (max > 0 && existing + newDebt > max) {
+      return `Hutang melebihi batas ${Utils.formatCurrency(max)} per pelanggan`;
+    }
+
+    this._debt = {
+      dp,
+      dpMethod: document.getElementById('debtDpMethod')?.value || 'cash',
+      dueDate: document.getElementById('debtDueDate')?.value || null,
+      note: document.getElementById('debtNoteInput')?.value.trim() || null,
+    };
+    return null;
   },
 
   _renderQrCode() {
@@ -131,9 +261,19 @@ const PaymentModule = {
 
   /** Memvalidasi & menyimpan transaksi setelah pembayaran dikonfirmasi */
   async confirmPayment() {
+    const isDebt = this.selectedMethod === 'debt';
+
     if (this.selectedMethod === 'cash' && this.cashReceived < STATE.cartTotal) {
       Utils.showToast('Uang diterima kurang dari total tagihan', 'error');
       return;
+    }
+
+    if (isDebt) {
+      const error = this._readDebtInput();
+      if (error) {
+        Utils.showToast(error, 'error');
+        return;
+      }
     }
 
     const confirmBtn = document.getElementById('confirmPaymentBtn');
@@ -147,12 +287,13 @@ const PaymentModule = {
       await this._reduceStock();
 
       Utils.playSound('cash');
-      Utils.showToast('Pembayaran berhasil!', 'success');
+      Utils.showToast(isDebt ? 'Hutang berhasil dicatat!' : 'Pembayaran berhasil!', 'success');
 
       ModalManager.close();
       this._showReceipt(transaction);
 
       STATE.resetCart();
+      this._debt = null;
     } catch (err) {
       console.error('[Payment] Gagal memproses pembayaran:', err);
       Utils.showToast('Gagal memproses pembayaran, coba lagi', 'error');
@@ -165,16 +306,25 @@ const PaymentModule = {
 
   /** Menyimpan record transaksi + item-itemnya ke database */
   async _saveTransaction() {
+    const isDebt = this.selectedMethod === 'debt';
+    const d = this._debt;
+
     const payload = {
       total_amount: STATE.cartTotal,
       payment_method: this.selectedMethod,
-      payment_status: 'paid',
+      payment_status: isDebt ? (d.dp > 0 ? 'partial' : 'unpaid') : 'paid',
       customer_name: STATE.activeCustomer?.name || 'Umum',
       // Digabung: diskon per-item + diskon kode, biar kolom "discount"
       // di laporan/histori mencerminkan total potongan yang sebenarnya.
       discount: STATE.cartItemDiscountsTotal + STATE.cartDiscountAmount,
       shift_id: STATE.currentShift?.id || null,
     };
+
+    if (isDebt) {
+      payload.amount_paid = d.dp;
+      payload.due_date = d.dueDate;
+      payload.note = d.note;
+    }
 
     const [transaction] = await API.transactions.create(payload);
 
@@ -186,7 +336,24 @@ const PaymentModule = {
     }));
     await API.transactionItems.create(items);
 
-    const fullTransaction = { ...transaction, items, change: Math.max(0, this.cashReceived - STATE.cartTotal) };
+    // DP dicatat sebagai pembayaran pertama (ikut masuk kas shift kalau tunai)
+    if (isDebt && d.dp > 0) {
+      await DebtsModule.recordPayments([{
+        transaction_id: String(transaction.id),
+        customer_name: payload.customer_name,
+        amount: d.dp,
+        method: d.dpMethod,
+        shift_id: STATE.currentShift?.id ? String(STATE.currentShift.id) : null,
+        note: 'DP',
+      }]);
+    }
+
+    const fullTransaction = {
+      ...transaction,
+      items,
+      change: Math.max(0, this.cashReceived - STATE.cartTotal),
+      ...(isDebt ? { amount_paid: d.dp, due_date: d.dueDate, note: d.note } : {}),
+    };
     STATE.setTransactions([fullTransaction, ...STATE.transactions]);
 
     return fullTransaction;
@@ -333,9 +500,22 @@ const PaymentModule = {
       return `${name} x${item.quantity} - ${Utils.formatCurrency(item.price * item.quantity)}`;
     }).join('\n');
 
-    const paymentLines = t.payment_method === 'cash'
-      ? `Tunai: ${Utils.formatCurrency(PaymentModule.cashReceived)}\nKembalian: ${Utils.formatCurrency(t.change || 0)}`
-      : `Metode: ${t.payment_method.toUpperCase()}`;
+    let paymentLines;
+    if (t.payment_method === 'debt') {
+      const paid = Number(t.amount_paid) || 0;
+      const rest = Math.max(0, Number(t.total_amount) - paid);
+      paymentLines = [
+        `Pelanggan: ${t.customer_name || '-'}`,
+        paid > 0 ? `Dibayar (DP): ${Utils.formatCurrency(paid)}` : null,
+        `*SISA HUTANG: ${Utils.formatCurrency(rest)}*`,
+        t.due_date ? `Jatuh tempo: ${DebtsModule.formatDueDate(t.due_date)}` : null,
+        '*** BELUM LUNAS ***',
+      ].filter(Boolean).join('\n');
+    } else if (t.payment_method === 'cash') {
+      paymentLines = `Tunai: ${Utils.formatCurrency(PaymentModule.cashReceived)}\nKembalian: ${Utils.formatCurrency(t.change || 0)}`;
+    } else {
+      paymentLines = `Metode: ${t.payment_method.toUpperCase()}`;
+    }
 
     const bank = CONFIG.STORE.BANK_ACCOUNT;
 
@@ -367,6 +547,24 @@ const PaymentModule = {
 
     const bank = CONFIG.STORE.BANK_ACCOUNT;
 
+    let paymentBlock;
+    if (t.payment_method === 'debt') {
+      const paid = Number(t.amount_paid) || 0;
+      const rest = Math.max(0, Number(t.total_amount) - paid);
+      paymentBlock = `
+        <div class="receipt-row"><span>Pelanggan</span><span>${Utils.escapeHtml(t.customer_name || '-')}</span></div>
+        ${paid > 0 ? `<div class="receipt-row"><span>Dibayar (DP)</span><span>${Utils.formatCurrency(paid)}</span></div>` : ''}
+        <div class="receipt-total-row"><span>SISA HUTANG</span><span>${Utils.formatCurrency(rest)}</span></div>
+        ${t.due_date ? `<div class="receipt-row"><span>Jatuh tempo</span><span>${DebtsModule.formatDueDate(t.due_date)}</span></div>` : ''}
+        <div style="text-align:center; font-weight: var(--font-weight-bold); margin-top: var(--space-2);">*** BELUM LUNAS ***</div>`;
+    } else if (t.payment_method === 'cash') {
+      paymentBlock = `
+        <div class="receipt-row"><span>Tunai</span><span>${Utils.formatCurrency(PaymentModule.cashReceived)}</span></div>
+        <div class="receipt-row"><span>Kembalian</span><span>${Utils.formatCurrency(t.change || 0)}</span></div>`;
+    } else {
+      paymentBlock = `<div class="receipt-row"><span>Metode</span><span>${Utils.escapeHtml(t.payment_method.toUpperCase())}</span></div>`;
+    }
+
     return `
       <div class="receipt">
         <div class="receipt-header">
@@ -381,10 +579,7 @@ const PaymentModule = {
         <div class="receipt-row"><span>Diskon</span><span>- ${Utils.formatCurrency(t.discount || 0)}</span></div>
         <div class="receipt-divider"></div>
         <div class="receipt-total-row"><span>TOTAL</span><span>${Utils.formatCurrency(t.total_amount)}</span></div>
-        ${t.payment_method === 'cash' ? `
-          <div class="receipt-row"><span>Tunai</span><span>${Utils.formatCurrency(PaymentModule.cashReceived)}</span></div>
-          <div class="receipt-row"><span>Kembalian</span><span>${Utils.formatCurrency(t.change || 0)}</span></div>
-        ` : `<div class="receipt-row"><span>Metode</span><span>${Utils.escapeHtml(t.payment_method.toUpperCase())}</span></div>`}
+        ${paymentBlock}
         <div class="receipt-divider"></div>
         <div style="text-align:center; font-size: var(--font-size-sm);">
           <div>Pembayaran via transfer:</div>
