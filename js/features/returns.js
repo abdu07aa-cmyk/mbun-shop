@@ -54,6 +54,10 @@ const ReturnsModule = {
       resultEl.innerHTML = `<span class="badge badge-warning">Transaksi ini sudah pernah diretur sebelumnya</span>`;
       return;
     }
+         if (transaction.payment_method === 'debt' && transaction.payment_status !== 'paid') {
+      resultEl.innerHTML = `<span class="badge badge-warning">Transaksi ini masih ada hutang. Selesaikan pembayaran dulu sebelum diretur.</span>`;
+      return;
+    }
 
     resultEl.innerHTML = `
       <div class="badge badge-success" style="margin-bottom: var(--space-3);">Transaksi ditemukan</div>
