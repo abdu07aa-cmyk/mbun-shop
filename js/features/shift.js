@@ -30,8 +30,12 @@ const ShiftModule = {
   },
 
   _openShiftHtml() {
+    const shift = STATE.currentShift;
+    const cashTransactions = STATE.transactions.filter(t => t.shift_id === shift.id && t.payment_method === 'cash');
     const cashSales = cashTransactions.reduce((sum, t) => sum + (Number(t.total_amount) || 0), 0)
       + DebtsModule.cashCollectedInShift(shift.id);
+    const expectedCash = Number(shift.initial_cash) + cashSales;
+
     return `
       <div class="stat-grid" style="margin-bottom: var(--space-6);">
         <div class="stat-card">
@@ -122,8 +126,12 @@ const ShiftModule = {
      =================================================== */
 
   closeShiftModal() {
+    const shift = STATE.currentShift;
+    const cashTransactions = STATE.transactions.filter(t => t.shift_id === shift.id && t.payment_method === 'cash');
     const cashSales = cashTransactions.reduce((sum, t) => sum + (Number(t.total_amount) || 0), 0)
       + DebtsModule.cashCollectedInShift(shift.id);
+    const expectedCash = Number(shift.initial_cash) + cashSales;
+
     ModalManager.open('closeShift', {
       title: 'Tutup Shift Kasir',
       size: 'sm',
