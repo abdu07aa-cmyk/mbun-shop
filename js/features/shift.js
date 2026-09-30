@@ -2,8 +2,9 @@
    WARUNGKITA PRO MAX — FEATURES/SHIFT.JS
    Manajemen shift kasir: membuka shift dengan modal kas
    awal, menutup shift dengan rekonsiliasi (kas akhir vs
-   kas yang seharusnya berdasarkan transaksi tunai), dan
-   menampilkan status shift di halaman "Shift Kasir".
+   kas yang seharusnya berdasarkan transaksi tunai + DP/cicilan
+   hutang tunai), dan menampilkan status shift di halaman
+   "Shift Kasir".
    ===================================================== */
 
 const ShiftModule = {
@@ -51,7 +52,7 @@ const ShiftModule = {
         <div class="stat-card">
           <div class="stat-card-icon is-orange"><i class="fa-solid fa-receipt"></i></div>
           <div class="stat-card-value">${Utils.formatCurrency(cashSales)}</div>
-          <div class="stat-card-label">Penjualan Tunai (${cashTransactions.length} transaksi)</div>
+          <div class="stat-card-label">Penjualan Tunai (${cashTransactions.length} transaksi, termasuk DP/cicilan tunai)</div>
         </div>
         <div class="stat-card">
           <div class="stat-card-icon is-purple"><i class="fa-solid fa-vault"></i></div>
@@ -137,7 +138,7 @@ const ShiftModule = {
       size: 'sm',
       bodyHtml: `
         <div class="summary-row"><span>Kas Awal</span><span>${Utils.formatCurrency(shift.initial_cash)}</span></div>
-        <div class="summary-row"><span>Penjualan Tunai</span><span>${Utils.formatCurrency(cashSales)}</span></div>
+        <div class="summary-row"><span>Penjualan Tunai (+ DP/cicilan tunai)</span><span>${Utils.formatCurrency(cashSales)}</span></div>
         <div class="summary-row summary-row-total" style="margin-bottom: var(--space-4);"><span>Kas Seharusnya</span><span>${Utils.formatCurrency(expectedCash)}</span></div>
         <label class="form-field">
           <span>Kas Akhir (Hasil Hitung Fisik)</span>
