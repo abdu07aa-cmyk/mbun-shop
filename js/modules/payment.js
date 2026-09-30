@@ -17,12 +17,10 @@ const PaymentModule = {
 
   /** Metode di modal kasir = metode biasa + "Hutang" */
   _methods() {
-    const methods = [...CONFIG.PAYMENT_METHODS];
-    // Opsi Hutang hanya tampil kalau js/features/debts.js berhasil dimuat
-    if (typeof DebtsModule !== 'undefined') {
-      methods.push({ id: 'debt', label: 'Hutang', icon: 'fa-book' });
-    }
-    return methods;
+    return [
+      ...CONFIG.PAYMENT_METHODS,
+      { id: 'debt', label: 'Hutang', icon: 'fa-book' },
+    ];
   },
 
   /* ===================================================
@@ -133,6 +131,11 @@ const PaymentModule = {
      =================================================== */
 
   _renderDebtDetail(container) {
+    if (typeof DebtsModule === 'undefined') {
+      container.innerHTML = `<span class="badge badge-danger">Modul hutang belum termuat. Pastikan file js/features/debts.js ada di folder yang benar, lalu tekan Ctrl+F5.</span>`;
+      return;
+    }
+
     if (STATE.customers.length === 0) {
       container.innerHTML = `<p style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">Belum ada pelanggan terdaftar. Tambahkan dulu di menu Pelanggan supaya hutang bisa dicatat atas nama pelanggan.</p>`;
       return;
@@ -264,6 +267,11 @@ const PaymentModule = {
   /** Memvalidasi & menyimpan transaksi setelah pembayaran dikonfirmasi */
   async confirmPayment() {
     const isDebt = this.selectedMethod === 'debt';
+
+    if (isDebt && typeof DebtsModule === 'undefined') {
+      Utils.showToast('Modul hutang belum termuat. Cek file js/features/debts.js lalu tekan Ctrl+F5.', 'error', 8000);
+      return;
+    }
 
     if (this.selectedMethod === 'cash' && this.cashReceived < STATE.cartTotal) {
       Utils.showToast('Uang diterima kurang dari total tagihan', 'error');
