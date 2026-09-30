@@ -17,10 +17,12 @@ const PaymentModule = {
 
   /** Metode di modal kasir = metode biasa + "Hutang" */
   _methods() {
-    return [
-      ...CONFIG.PAYMENT_METHODS,
-      { id: 'debt', label: 'Hutang', icon: 'fa-book' },
-    ];
+    const methods = [...CONFIG.PAYMENT_METHODS];
+    // Opsi Hutang hanya tampil kalau js/features/debts.js berhasil dimuat
+    if (typeof DebtsModule !== 'undefined') {
+      methods.push({ id: 'debt', label: 'Hutang', icon: 'fa-book' });
+    }
+    return methods;
   },
 
   /* ===================================================
@@ -296,7 +298,7 @@ const PaymentModule = {
       this._debt = null;
     } catch (err) {
       console.error('[Payment] Gagal memproses pembayaran:', err);
-      Utils.showToast('Gagal memproses pembayaran, coba lagi', 'error');
+      Utils.showToast(`Gagal memproses pembayaran: ${err?.message || 'error tidak diketahui'}`, 'error', 8000);
       if (confirmBtn) {
         confirmBtn.disabled = false;
         confirmBtn.innerHTML = '<i class="fa-solid fa-check"></i> Konfirmasi Pembayaran';
