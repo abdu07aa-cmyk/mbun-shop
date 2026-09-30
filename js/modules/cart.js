@@ -2,7 +2,8 @@
    WARUNGKITA PRO MAX — MODULES/CART.JS
    Operasi keranjang belanja di halaman Kasir: menambah
    produk, mengubah kuantitas, menghapus item, menerapkan
-   kode diskon, dan merender ringkasan keranjang.
+   kode diskon, memilih pelanggan (dengan info sisa hutang &
+   peringatan jatuh tempo), dan merender ringkasan keranjang.
    ===================================================== */
 
 const CartModule = {
@@ -309,6 +310,7 @@ const CartModule = {
      PILIH PELANGGAN
      Menentukan STATE.activeCustomer yang nanti ikut kesimpan
      di kolom "Pelanggan" pada tabel Transaksi/Histori.
+     Daftar menampilkan sisa hutang tiap pelanggan (kalau ada).
      =================================================== */
 
   openCustomerPicker() {
@@ -334,6 +336,15 @@ const CartModule = {
     }, 200));
   },
 
+  /** Badge "Hutang Rp xx" untuk daftar pelanggan (kosong kalau tidak berhutang) */
+  _debtBadgeHtml(customerName) {
+    if (typeof DebtsModule === 'undefined') return '';
+    const s = DebtsModule.summaryFor(customerName);
+    if (s.total <= 0) return '';
+    const cls = s.overdueCount > 0 ? 'badge-danger' : 'badge-warning';
+    return `<span class="badge ${cls}" style="margin-left:auto; flex-shrink:0;">Hutang ${Utils.formatCurrency(s.total)}</span>`;
+  },
+
   _renderCustomerPickerList(customers) {
     const umumRow = `
       <button class="btn btn-secondary btn-block" data-pick-customer="umum" style="justify-content:flex-start;">
@@ -345,8 +356,10 @@ const CartModule = {
     }
 
     const rows = customers.map(c => `
-      <button class="btn btn-secondary btn-block" data-pick-customer="${c.id}" style="justify-content:flex-start;">
-        <i class="fa-solid fa-user"></i>&nbsp; ${Utils.escapeHtml(c.name)}${c.phone ? ' — ' + Utils.escapeHtml(c.phone) : ''}
+      <button class="btn btn-secondary btn-block" data-pick-customer="${c.id}" style="justify-content:flex-start; gap: var(--space-2);">
+        <i class="fa-solid fa-user"></i>
+        <span style="text-align:left; min-width:0; overflow:hidden; text-overflow:ellipsis;">${Utils.escapeHtml(c.name)}${c.phone ? ' — ' + Utils.escapeHtml(c.phone) : ''}</span>
+        ${this._debtBadgeHtml(c.name)}
       </button>`).join('');
 
     return umumRow + rows;
@@ -362,11 +375,63 @@ const CartModule = {
     this._syncCustomerLabel();
     ModalManager.close();
     Utils.showToast(`Pelanggan diset ke: ${STATE.activeCustomer?.name || 'Umum'}`, 'success');
+
+    // Peringatan langsung kalau pelanggan ini punya hutang lewat jatuh tempo
+    if (STATE.activeCustomer && typeof DebtsModule !== 'undefined') {
+      const s = DebtsModule.summaryFor(STATE.activeCustomer.name);
+      if (s.overdueCount > 0) {
+        Utils.showToast(
+          `⚠️ ${STATE.activeCustomer.name} punya hutang LEWAT JATUH TEMPO ${Utils.formatCurrency(s.overdueAmount)}`,
+          'warning', 7000
+        );
+      }
+    }
   },
 
   _syncCustomerLabel() {
     const label = document.getElementById('activeCustomerName');
     if (label) label.textContent = STATE.activeCustomer?.name || 'Umum';
+    this._syncDebtWarning();
+  },
+
+  /**
+   * Menampilkan kotak info di bawah baris pelanggan aktif kalau
+   * pelanggan itu punya hutang (merah kalau ada yang lewat jatuh tempo).
+   * Elemennya dibuat otomatis, jadi index.html tidak perlu diubah.
+   */
+  _syncDebtWarning() {
+    const nameEl = document.getElementById('activeCustomerName');
+    if (!nameEl) return;
+
+    let box = document.getElementById('customerDebtWarning');
+    if (!box) {
+      const row = nameEl.parentElement?.parentElement; // baris "Pelanggan | Pilih Pelanggan"
+      if (!row) return;
+      box = document.createElement('div');
+      box.id = 'customerDebtWarning';
+      row.insertAdjacentElement('afterend', box);
+    }
+
+    const customer = STATE.activeCustomer;
+    const s = (customer && typeof DebtsModule !== 'undefined') ? DebtsModule.summaryFor(customer.name) : null;
+
+    if (!s || s.total <= 0) {
+      box.style.display = 'none';
+      box.innerHTML = '';
+      return;
+    }
+
+    const overdue = s.overdueCount > 0;
+    box.style.display = 'block';
+    box.style.padding = 'var(--space-2) var(--space-5)';
+    box.style.fontSize = 'var(--font-size-xs)';
+    box.style.fontWeight = 'var(--font-weight-semibold)';
+    box.style.borderBottom = '1px solid var(--color-border)';
+    box.style.background = overdue ? 'var(--color-danger-light)' : 'var(--color-warning-light)';
+    box.style.color = overdue ? '#b91c1c' : '#b45309';
+    box.innerHTML = overdue
+      ? `⚠️ Hutang lewat jatuh tempo ${Utils.formatCurrency(s.overdueAmount)} (total hutang ${Utils.formatCurrency(s.total)})`
+      : `ℹ️ Hutang aktif: ${Utils.formatCurrency(s.total)}`;
   },
 
   /* ===================================================
