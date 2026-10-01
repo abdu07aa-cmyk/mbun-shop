@@ -14,6 +14,8 @@ const PaymentModule = {
   cashReceived: 0,
   /** Data hutang yang sudah divalidasi: { dp, dpMethod, dueDate, note } */
   _debt: null,
+  /** Sudah lolos verifikasi PIN untuk hutang besar (supaya tidak diminta berulang) */
+  _pinVerified: false,
 
   /** Metode di modal kasir = metode biasa + "Hutang" */
   _methods() {
@@ -41,6 +43,7 @@ const PaymentModule = {
     this.selectedMethod = 'cash';
     this.cashReceived = 0;
     this._debt = null;
+    this._pinVerified = false;
 
     ModalManager.open('payment', {
       title: 'Proses Pembayaran',
@@ -284,10 +287,23 @@ const PaymentModule = {
       return;
     }
 
-    if (isDebt) {
+    // Setelah PIN lolos, fungsi ini dipanggil ulang; input modal sudah
+    // tertutup, jadi data hutang (this._debt) tidak boleh dibaca ulang.
+    if (isDebt && !this._pinVerified) {
       const error = this._readDebtInput();
       if (error) {
         Utils.showToast(error, 'error');
+        return;
+      }
+
+      // PIN wajib untuk hutang baru di atas batas (mencegah hutang besar sembarangan)
+      const newDebt = STATE.cartTotal - this._debt.dp;
+      const pinAbove = Number(CONFIG.DEBT?.PIN_ABOVE ?? 200000);
+      if (pinAbove > 0 && newDebt > pinAbove) {
+        AuthModule.requirePin(`mencatat hutang ${Utils.formatCurrency(newDebt)}`, () => {
+          this._pinVerified = true;
+          this.confirmPayment();
+        });
         return;
       }
     }
@@ -310,9 +326,11 @@ const PaymentModule = {
 
       STATE.resetCart();
       this._debt = null;
+      this._pinVerified = false;
     } catch (err) {
       console.error('[Payment] Gagal memproses pembayaran:', err);
       Utils.showToast(`Gagal memproses pembayaran: ${err?.message || 'error tidak diketahui'}`, 'error', 8000);
+      this._pinVerified = false;
       if (confirmBtn) {
         confirmBtn.disabled = false;
         confirmBtn.innerHTML = '<i class="fa-solid fa-check"></i> Konfirmasi Pembayaran';
