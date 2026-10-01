@@ -667,6 +667,243 @@ const DebtsModule = {
   },
 
   /* ===================================================
+     EKSPOR CSV & REKAP
+     =================================================== */
+
+  /** Ekspor semua transaksi yang masih berhutang ke CSV (bisa dibuka di Excel) */
+  exportCsv() {
+    if (typeof ExportModule === 'undefined') {
+      Utils.showToast('Fitur ekspor belum termuat', 'error');
+      return;
+    }
+
+    const rows = this.getOpenTransactions()
+      .sort((a, b) => this._byOldest(a, b))
+      .map(t => ({
+        customer: t.customer_name || 'Umum',
+        date: Utils.formatDateTime(t.created_at),
+        total: Number(t.total_amount) || 0,
+        paid: Number(t.amount_paid) || 0,
+        rest: this.outstanding(t),
+        due: t.due_date ? this.formatDueDate(t.due_date) : '',
+        status: this.isOverdue(t) ? 'Lewat jatuh tempo' : 'Belum lunas',
+        note: t.note || '',
+      }));
+
+    ExportModule.exportToCsv(
+      rows,
+      [
+        { key: 'customer', label: 'Pelanggan' },
+        { key: 'date', label: 'Tanggal Belanja' },
+        { key: 'total', label: 'Total Belanja' },
+        { key: 'paid', label: 'Sudah Dibayar' },
+        { key: 'rest', label: 'Sisa Hutang' },
+        { key: 'due', label: 'Jatuh Tempo' },
+        { key: 'status', label: 'Status' },
+        { key: 'note', label: 'Catatan' },
+      ],
+      `hutang-${CONFIG.STORE.NAME.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`
+    );
+  },
+
+  /** Teks rekap hutang semua pelanggan (siap kirim ke WhatsApp/chat) */
+  _recapText() {
+    const customers = this.getCustomerDebts();
+    const total = customers.reduce((sum, c) => sum + c.total, 0);
+
+    return [
+      '*REKAP HUTANG PELANGGAN*',
+      CONFIG.STORE.NAME,
+      Utils.formatDateTime(new Date()),
+      '------------------------------',
+      ...customers.map((c, i) => `${i + 1}. ${c.name}: ${Utils.formatCurrency(c.total)}${c.overdue ? ' ⚠️ lewat tempo' : ''}`),
+      '------------------------------',
+      `*TOTAL PIUTANG: ${Utils.formatCurrency(total)}*`,
+      `(${customers.length} pelanggan)`,
+    ].join('\n');
+  },
+
+  shareRecap() {
+    if (this.getCustomerDebts().length === 0) {
+      Utils.showToast('Tidak ada hutang untuk direkap', 'info');
+      return;
+    }
+    this._shareText(this._recapText());
+  },
+
+  /* ===================================================
+     PENGINGAT MASSAL (pelanggan lewat jatuh tempo)
+     WhatsApp tidak mengizinkan kirim otomatis ke banyak nomor,
+     jadi dikirim satu per satu lewat tombol "Kirim".
+     =================================================== */
+
+  _remindedThisSession: new Set(),
+
+  openBulkRemindModal() {
+    const list = this.getCustomerDebts().filter(c => c.overdue);
+    if (list.length === 0) {
+      Utils.showToast('Tidak ada hutang yang lewat jatuh tempo 🎉', 'info');
+      return;
+    }
+
+    ModalManager.open('debtBulkRemind', {
+      title: `Ingatkan Pelanggan (${list.length})`,
+      size: 'md',
+      bodyHtml: this._bulkRemindHtml(list),
+      footerHtml: `<button class="btn btn-secondary btn-block" data-modal-close>Tutup</button>`,
+    });
+  },
+
+  _bulkRemindHtml(list) {
+    const rows = list.map(c => {
+      const customer = STATE.customers.find(x => x.name === c.name);
+      const hasPhone = !!this._waNumber(customer?.phone);
+      const sent = this._remindedThisSession.has(c.name);
+
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border);">
+          <div style="min-width:0;">
+            <strong style="font-size: var(--font-size-sm);">${Utils.escapeHtml(c.name)}</strong><br>
+            <small>${Utils.formatCurrency(c.total)}${hasPhone ? '' : ' &middot; nomor HP belum diisi'}</small>
+          </div>
+          <button class="btn ${sent ? 'btn-secondary' : 'btn-primary'}" style="padding: var(--space-2) var(--space-3); flex-shrink:0;"
+            data-debt-bulk-remind="${encodeURIComponent(c.name)}" ${hasPhone ? '' : 'disabled'}>
+            ${sent ? '<i class="fa-solid fa-check"></i> Sudah dikirim' : '<i class="fa-brands fa-whatsapp"></i> Kirim'}
+          </button>
+        </div>`;
+    }).join('');
+
+    return `
+      <p style="margin-bottom: var(--space-3); font-size: var(--font-size-sm); color: var(--color-text-secondary);">
+        Klik <strong>Kirim</strong> pada tiap pelanggan. WhatsApp akan terbuka dengan pesan siap kirim, tinggal tekan kirim di sana.
+      </p>
+      ${rows}`;
+  },
+
+  _bulkRemind(name) {
+    const customer = STATE.customers.find(x => x.name === name);
+    if (!this._waNumber(customer?.phone)) {
+      Utils.showToast('Nomor HP pelanggan belum diisi', 'warning');
+      return;
+    }
+
+    this.remind(name);
+    this._remindedThisSession.add(name);
+
+    const title = document.querySelector('#modalRoot .modal-header h3')?.textContent || '';
+    const body = document.querySelector('#modalRoot .modal-body');
+    if (body && title.includes('Ingatkan Pelanggan')) {
+      body.innerHTML = this._bulkRemindHtml(this.getCustomerDebts().filter(c => c.overdue));
+    }
+  },
+
+  /* ===================================================
+     LAPORAN PIUTANG (kartu otomatis di menu Laporan)
+     =================================================== */
+
+  /** Mengelompokkan sisa hutang berdasarkan umur sejak tanggal transaksi */
+  _agingBuckets() {
+    const buckets = [
+      { label: '0–7 hari', min: 0, max: 7, amount: 0, count: 0 },
+      { label: '8–30 hari', min: 8, max: 30, amount: 0, count: 0 },
+      { label: 'Lebih dari 30 hari', min: 31, max: Infinity, amount: 0, count: 0 },
+    ];
+    const now = new Date();
+
+    this.getOpenTransactions().forEach(t => {
+      const age = Math.max(0, Math.floor((now - Utils._parseDate(t.created_at)) / 86400000));
+      const bucket = buckets.find(b => age >= b.min && age <= b.max);
+      if (bucket) {
+        bucket.amount += this.outstanding(t);
+        bucket.count += 1;
+      }
+    });
+
+    return buckets;
+  },
+
+  renderAgingReport() {
+    const view = document.getElementById('view-laporan');
+    if (!view) return;
+
+    let card = document.getElementById('debtAgingCard');
+    if (!card) {
+      card = document.createElement('div');
+      card.id = 'debtAgingCard';
+      card.className = 'card';
+      view.appendChild(card);
+    }
+
+    const buckets = this._agingBuckets();
+    const total = buckets.reduce((sum, b) => sum + b.amount, 0);
+    const top = this.getCustomerDebts().slice(0, 5);
+
+    const now = new Date();
+    const receivedThisMonth = this.payments
+      .filter(p => {
+        const d = Utils._parseDate(p.created_at);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    card.innerHTML = `
+      <div class="card-header"><h3>Laporan Piutang</h3></div>
+      <div class="summary-row summary-row-total" style="margin-bottom: var(--space-2);">
+        <span>Total Piutang</span><span style="color: var(--color-danger);">${Utils.formatCurrency(total)}</span>
+      </div>
+      <div class="summary-row" style="margin-bottom: var(--space-4);">
+        <span>Pembayaran hutang diterima bulan ini</span>
+        <strong style="color: var(--color-success);">${Utils.formatCurrency(receivedThisMonth)}</strong>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Umur Hutang</th><th>Transaksi</th><th>Nominal</th><th>Porsi</th></tr></thead>
+          <tbody>
+            ${buckets.map(b => `
+              <tr>
+                <td>${b.label}</td>
+                <td>${b.count}</td>
+                <td>${Utils.formatCurrency(b.amount)}</td>
+                <td>${total > 0 ? Math.round((b.amount / total) * 100) : 0}%</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top: var(--space-2); font-size: var(--font-size-xs); color: var(--color-text-muted);">
+        Umur dihitung sejak tanggal transaksi, bukan sejak jatuh tempo.
+      </p>
+
+      <p style="margin: var(--space-4) 0 var(--space-2); font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm);">Hutang terbesar</p>
+      ${top.length
+        ? top.map((c, i) => `
+            <div class="summary-row">
+              <span>${i + 1}. ${Utils.escapeHtml(c.name)}</span>
+              <strong style="color: var(--color-danger);">${Utils.formatCurrency(c.total)}</strong>
+            </div>`).join('')
+        : `<p style="font-size: var(--font-size-sm); color: var(--color-text-muted);">Tidak ada hutang aktif 🎉</p>`}`;
+  },
+
+  /** Tombol-tombol tambahan di header menu Hutang (dibuat otomatis) */
+  _injectToolbar() {
+    const header = document.querySelector('#view-hutang .view-header');
+    if (!header || document.getElementById('debtToolbar')) return;
+
+    const bar = document.createElement('div');
+    bar.id = 'debtToolbar';
+    bar.className = 'view-header-actions';
+    bar.innerHTML = `
+      <button class="btn btn-secondary" id="debtExportBtn"><i class="fa-solid fa-file-export"></i> Ekspor CSV</button>
+      <button class="btn btn-secondary" id="debtRecapBtn"><i class="fa-solid fa-share-nodes"></i> Bagikan Rekap</button>
+      <button class="btn btn-primary" id="debtBulkRemindBtn"><i class="fa-brands fa-whatsapp"></i> Ingatkan Semua</button>`;
+    header.appendChild(bar);
+
+    document.getElementById('debtExportBtn')?.addEventListener('click', () => this.exportCsv());
+    document.getElementById('debtRecapBtn')?.addEventListener('click', () => this.shareRecap());
+    document.getElementById('debtBulkRemindBtn')?.addEventListener('click', () => this.openBulkRemindModal());
+  },
+
+  /* ===================================================
      INISIALISASI (mandiri)
      =================================================== */
 
@@ -675,6 +912,7 @@ const DebtsModule = {
     // menggagalkan proses pembayaran/penyimpanan transaksi di kasir.
     try {
       this.render();
+      if (document.getElementById('debtAgingCard')) this.renderAgingReport();
 
       // Notifikasi lonceng sekali per sesi kalau ada yang lewat jatuh tempo
       if (this._overdueAlerted) return;
@@ -697,7 +935,10 @@ const DebtsModule = {
 
     STATE.subscribe('view', () => {
       if (STATE.currentView === 'hutang') this.load();
+      if (STATE.currentView === 'laporan') this.renderAgingReport();
     });
+
+    this._injectToolbar();
 
     // Delegasi klik: tombol di tabel Hutang maupun di dalam modal
     document.addEventListener('click', (e) => {
@@ -709,6 +950,9 @@ const DebtsModule = {
 
       const remindBtn = e.target.closest('[data-debt-remind]');
       if (remindBtn) return this.remind(decodeURIComponent(remindBtn.dataset.debtRemind));
+
+      const bulkBtn = e.target.closest('[data-debt-bulk-remind]');
+      if (bulkBtn) return this._bulkRemind(decodeURIComponent(bulkBtn.dataset.debtBulkRemind));
     });
 
     // Pencarian global ikut menyaring daftar hutang saat menu Hutang terbuka
