@@ -60,6 +60,9 @@ const CONFIG = {
     // Batas total hutang aktif per pelanggan (Rupiah).
     // Isi 0 kalau tidak ingin ada batas.
     MAX_PER_CUSTOMER: 500000,
+    // Hutang BARU (setelah DP) di atas nominal ini wajib verifikasi PIN.
+    // Isi 0 kalau tidak ingin meminta PIN.
+    PIN_ABOVE: 200000,
   },
 
   /* ---------- KODE DISKON BAWAAN ---------- */
